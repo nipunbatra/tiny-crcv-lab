@@ -31,7 +31,15 @@ const tokenizer = await AutoTokenizer.from_pretrained(repo);
 const model = await AutoModelForCausalLM.from_pretrained(repo, { dtype: 'q4', device: 'cpu' });
 const inputs = promptInputs(tokenizer);
 const promptLength = inputs.input_ids.dims.at(-1);
-const output = await model.generate({ ...inputs, do_sample: false, max_new_tokens: 24 });
+const output = await model.generate({
+  ...inputs,
+  do_sample: false,
+  repetition_penalty: 1,
+  temperature: 1,
+  top_k: 0,
+  top_p: 1,
+  max_new_tokens: 24,
+});
 const sequence = output.sequences ?? output;
 const ids = sequence.tolist()[0].map(Number).slice(promptLength);
 const answer = tokenizer.decode(ids, { skip_special_tokens: true }).trim();

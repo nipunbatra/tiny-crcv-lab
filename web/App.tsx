@@ -289,9 +289,9 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
         </button>
         <nav className="order-3 flex w-full items-center border hairline bg-white p-1 text-sm md:order-none md:w-auto" aria-label="Main views">
           {([
-            ['overview', 'Overview'],
-            ['explore', 'Explore details'],
-            ['live', 'Run locally'],
+            ['overview', 'Conclusion'],
+            ['explore', 'Evidence'],
+            ['live', 'Try it'],
           ] as Array<[AppView, string]>).map(([value, label]) => (
             <button
               key={value}
@@ -303,102 +303,81 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
             </button>
           ))}
         </nav>
-        <ModelToggle value={model} onChange={onModel} />
+        {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">Two datasets · two model variants · one recommendation</span> : <ModelToggle value={model} onChange={onModel} />}
       </div>
     </header>
   );
 }
 
-function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => void; onRun: () => void }) {
-  const bench = benchmarks[model];
-  const entropy = bench.scores.token_entropy_top3;
-  const confidenceTail = bench.scores.top3_token_surprise;
-  const featured = model === 'instruct' ? entropy : bench.scores.worst_token_surprise;
+function Hero({ onExplore, onRun }: { onExplore: () => void; onRun: () => void }) {
   return (
     <section id="top" className="grid-noise border-b hairline">
-      <div className="shell grid gap-10 py-14 lg:grid-cols-[1.15fr_.85fr] lg:py-20">
+      <div className="shell grid gap-10 py-14 lg:grid-cols-[1.08fr_.92fr] lg:py-20">
         <div className="max-w-3xl">
-          <p className="eyebrow mb-5">A small, inspectable AI experiment</p>
-          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Can a model warn us when it is wrong?</h1>
+          <p className="eyebrow mb-5">Final recommendation</p>
+          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Use uncertainty as a warning, not a verdict.</h1>
           <p className="mt-7 max-w-2xl text-lg leading-8 text-[#505955]">
-            We asked a tiny open model 100 factual questions, watched its internal signals, and checked whether those signals separated wrong answers from correct ones.
+            Start with one cheap score—top-3 token surprise—to flag answers for review. Calibrate its cutoff on your own examples. Do not call it a standalone hallucination detector yet.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
-            <button onClick={onExplore} className="focus-ring inline-flex items-center gap-2 bg-[#df4c2f] px-5 py-3 font-semibold text-white">See every calculation <ArrowRight size={18} /></button>
-            <button onClick={onRun} className="focus-ring inline-flex items-center gap-2 border hairline bg-white px-5 py-3 font-semibold">Try it in my browser <Cpu size={18} /></button>
+            <button onClick={onRun} className="focus-ring inline-flex items-center gap-2 bg-[#df4c2f] px-5 py-3 font-semibold text-white">Try one question <Cpu size={18} /></button>
+            <button onClick={onExplore} className="focus-ring inline-flex items-center gap-2 border hairline bg-white px-5 py-3 font-semibold">Inspect the evidence <ArrowRight size={18} /></button>
           </div>
         </div>
         <div className="card self-end p-6 lg:p-8">
-          <p className="eyebrow">Short answer</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">{model === 'instruct' ? 'Full-distribution entropy nudged higher.' : 'The confidence tail stayed strongest.'}</h2>
-          <p className="mt-4 text-base leading-7 text-[#505955]">{model === 'instruct' ? `Top-3 token entropy scored ${format(entropy.test_auroc)}, versus ${format(confidenceTail.test_auroc)} for top-3 selected-token surprise.` : `Worst-token surprise scored ${format(featured.test_auroc)}. Top-3 entropy reached ${format(entropy.test_auroc)} and did not improve this Base run.`}</p>
-          <div className="mt-6 border-t hairline pt-5">
-            <p className="text-sm font-semibold">How to read the score</p>
-            <div className="relative mt-3 h-2 bg-[#ded9cf]"><span className="absolute left-1/2 top-[-5px] h-4 w-px bg-[#69716d]" /><span className="absolute top-0 h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (featured.test_auroc - .5) * 200)}%` }} /></div>
-            <div className="mt-2 flex justify-between text-xs text-[#69716d]"><span>0.5 · chance</span><span>1.0 · perfect ranking</span></div>
+          <p className="eyebrow">Recommended v0</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">Top-3 token surprise</h2>
+          <p className="mono mt-4 bg-[#18211d] p-4 text-sm text-white">mean(top 3 of −ln p(chosen token))</p>
+          <div className="mt-6 space-y-4 border-t hairline pt-5 text-sm leading-6">
+            <p><strong>Use it for:</strong> ranking answers for review or triggering abstention.</p>
+            <p><strong>Add:</strong> top-3 entropy as a secondary diagnostic and answer length as a confound check.</p>
+            <p><strong>Do not add yet:</strong> the shallow tree or CRCV hidden-state score; neither improved consistently.</p>
           </div>
-          <p className="mt-5 text-xs leading-5 text-[#69716d]">Exploratory follow-up: this 50-question test has now informed the project, so the result needs confirmation on fresh questions.</p>
-          <div className="mt-6 flex gap-8 text-sm">
-            <div><span className="mono block text-xl font-semibold">100</span><span className="text-[#69716d]">questions</span></div>
-            <div><span className="mono block text-xl font-semibold">50</span><span className="text-[#69716d]">held out</span></div>
-            <div><span className="mono block text-xl font-semibold">{bench.test_hallucinations}</span><span className="text-[#69716d]">wrong</span></div>
-          </div>
+          <p className="mt-5 bg-[#fbe9e2] p-3 text-xs leading-5 text-[#6f2d20]">Evidence is still small and exploratory. A high score means “review this,” not “this is false.”</p>
         </div>
       </div>
     </section>
   );
 }
 
-function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: () => void }) {
-  const example = predictions[model].find((item) => item.id === 'q002') ?? predictions[model][0];
-  const bench = benchmarks[model];
-  const tail = example.token_entropies
-    .map((entropy, index) => ({ entropy, token: example.token_pieces[index] }))
-    .sort((left, right) => right.entropy - left.entropy)
-    .slice(0, 3);
-  const scores: Array<{ key: FeatureKey; plain: string }> = [
-    { key: 'token_entropy_top3', plain: 'Full-distribution uncertainty at the three shakiest tokens' },
-    { key: 'top3_token_surprise', plain: 'Average surprise of the three shakiest tokens' },
-    { key: 'crcv_mean', plain: 'Confidence × hidden-state movement (CRCV)' },
+function BeginnerOverview({ onExplore }: { onExplore: () => void }) {
+  const comparison = [
+    { name: 'Top-3 token surprise', key: 'top3_token_surprise' as FeatureKey, recommended: true },
+    { name: 'Top-3 entropy', key: 'token_entropy_top3' as FeatureKey },
+    { name: 'Depth-2 tree', tree: true },
+    { name: 'CRCV hidden-state score', key: 'crcv_mean' as FeatureKey },
+    { name: 'Answer length control', key: 'answer_tokens' as FeatureKey },
   ];
+  const comparisonScores = comparison.map((row) => ({
+    ...row,
+    instruct: row.tree ? shallowTrees.models.instruct.depth2_tree.test_auroc : benchmarks.instruct.scores[row.key!].test_auroc,
+    base: row.tree ? shallowTrees.models.base.depth2_tree.test_auroc : benchmarks.base.scores[row.key!].test_auroc,
+    halueval: row.tree ? haluevalMetrics.depth2_tree.test_auroc : haluevalMetrics.scores[row.key!].test_auroc,
+    decision: row.recommended ? 'Most consistent simple signal.' : row.key === 'token_entropy_top3' ? 'Useful secondary diagnostic.' : row.tree ? 'No consistent gain.' : row.key === 'crcv_mean' ? 'Do not recommend.' : 'Confound check only.',
+  }));
   return (
-    <>
-      <section className="shell py-16">
-        <div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]">
-          <div>
-            <p className="eyebrow">The newest input point, four steps</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Measure the whole token decision.</h2>
-            <p className="mt-5 max-w-lg text-base leading-7 text-[#69716d]">Confidence watches only the winning token. Entropy also asks how much probability remains spread across all 151,935 alternatives, then keeps the three most uncertain decisions.</p>
-          </div>
-          <div className="overview-flow" aria-label="Simplified detector flow">
-            <OverviewStep number="1" label="Ask" value={example.question} note="The question is tokenized and passes through all 24 layers." />
-            <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="2" label="Read logits" value="151,936 choices per token" note="Softmax turns every vocabulary logit into a probability." />
-            <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="3" label="Keep the top 3 entropies" value={tail.map((item) => JSON.stringify(item.token)).join(' · ')} note={tail.map((item) => `e=${format(item.entropy, 3)}`).join(' · ')} />
-            <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="4" label="Average" value={format(example.features.token_entropy_top3, 3)} note="Higher means the answer contained a more diffuse uncertainty tail." accent />
-          </div>
+    <section className="border-b hairline bg-[#eae6dc] py-16">
+      <div className="shell">
+        <div className="flex flex-wrap items-end justify-between gap-5">
+          <div><p className="eyebrow">The evidence at a glance</p><h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">The same metrics on both datasets.</h2></div>
+          <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC: how often a wrong candidate receives a higher risk score than a correct one. 0.500 is chance; 1.000 is perfect ranking.</p>
         </div>
-      </section>
-
-      <section className="border-y hairline bg-[#eae6dc] py-16">
-        <div className="shell grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
-          <div>
-            <p className="eyebrow">What the 50 unseen questions said</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">More input points, one honest leaderboard.</h2>
-            <p className="mt-5 max-w-lg leading-7 text-[#69716d]">Higher AUROC means a score more often ranks a wrong answer above a correct one. Chance is 0.500. This is a small experiment, so treat the ranking as a lead—not a verdict.</p>
-            <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Open the evidence and calculations <ArrowRight size={18} /></button>
-          </div>
-          <div className="space-y-5 self-center">
-            {scores.map(({ key, plain }) => {
-              const value = bench.scores[key].test_auroc;
-              return <div key={key}><div className="mb-2 flex items-end justify-between gap-4"><div><p className="font-semibold">{plain}</p><p className="mt-1 text-xs text-[#69716d]">{key === 'token_entropy_top3' ? 'new full-distribution signal' : key === 'crcv_mean' ? 'original proposed detector' : 'previous confidence-tail signal'}</p></div><span className="mono text-2xl font-semibold">{format(value)}</span></div><div className="relative h-2 bg-[#d5d0c6]"><span className="absolute left-1/2 top-[-3px] h-4 w-px bg-[#69716d]" /><span className="absolute h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (value - .5) * 200)}%` }} /></div></div>;
-            })}
-          </div>
+        <div className="card mt-7 hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-[#eeeae1] text-[11px] uppercase tracking-[.07em] text-[#69716d]"><tr><th className="p-4">Method</th><th className="p-4">Our generated answers<br /><span className="normal-case font-normal">Instruct · 50 held out</span></th><th className="p-4">Same questions<br /><span className="normal-case font-normal">Base · 50 held out</span></th><th className="p-4">HaluEval QA<br /><span className="normal-case font-normal">25 held-out pairs</span></th><th className="p-4">Decision</th></tr></thead>
+            <tbody>{comparisonScores.map((row) => <tr className={`border-t hairline ${row.recommended ? 'bg-[#fff8f4]' : ''}`} key={row.name}><td className="p-4 font-semibold">{row.name}{row.recommended && <span className="ml-2 bg-[#df4c2f] px-2 py-1 text-[9px] uppercase text-white">recommended</span>}</td><td className="mono p-4 text-lg">{format(row.instruct)}</td><td className="mono p-4 text-lg">{format(row.base)}</td><td className="mono p-4 text-lg">{format(row.halueval)}</td><td className="p-4 text-xs leading-5 text-[#69716d]">{row.decision}</td></tr>)}</tbody>
+          </table>
         </div>
-      </section>
-    </>
+        <div className="mt-6 space-y-3 md:hidden">
+          {comparisonScores.map((row) => <article className={`card p-4 ${row.recommended ? 'border-l-4 !border-l-[#df4c2f] bg-[#fff8f4]' : ''}`} key={`mobile-${row.name}`}><div className="flex items-start justify-between gap-3"><p className="font-semibold">{row.name}</p>{row.recommended && <span className="bg-[#df4c2f] px-2 py-1 text-[9px] uppercase text-white">recommended</span>}</div><div className="mt-4 grid grid-cols-3 gap-2"><div><p className="text-[9px] uppercase text-[#69716d]">Instruct</p><p className="mono mt-1 text-lg">{format(row.instruct)}</p></div><div><p className="text-[9px] uppercase text-[#69716d]">Base</p><p className="mono mt-1 text-lg">{format(row.base)}</p></div><div><p className="text-[9px] uppercase text-[#69716d]">HaluEval</p><p className="mono mt-1 text-lg">{format(row.halueval)}</p></div></div><p className="mt-3 border-t hairline pt-3 text-xs text-[#69716d]">{row.decision}</p></article>)}
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="bg-[#fbe9e2] p-5 text-sm leading-6 text-[#6f2d20]"><strong>Important HaluEval caveat.</strong> Its hallucinated answer was longer in all 25 held-out pairs, so even length scored 0.958. Treat the HaluEval column as a confounded stress test.</div>
+          <div className="bg-[#fffdf8] p-5 text-sm leading-6"><strong>Operational recipe.</strong> Compute top-3 surprise → fit the review cutoff on labelled calibration examples → freeze it → measure once on fresh examples.</div>
+        </div>
+        <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Open formulas, confidence intervals, and all examples <ArrowRight size={18} /></button>
+      </div>
+    </section>
   );
 }
 
@@ -408,12 +387,16 @@ function OverviewStep({ number, label, value, note, accent = false }: { number: 
 
 function Results({ model }: { model: ModelKind }) {
   const bench = benchmarks[model];
-  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('token_entropy_top3');
+  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('top3_token_surprise');
   const [metricFilter, setMetricFilter] = useState<'all' | MetricDefinition['group']>('all');
   const leaderboard = [...metricKeys].sort((left, right) => bench.scores[right].test_auroc - bench.scores[left].test_auroc);
   const visibleLeaderboard = leaderboard.filter((key) => metricFilter === 'all' || metricDefinitions[key].group === metricFilter);
   return (
     <section id="results" className="shell py-18">
+      <div className="mb-8 grid gap-4 border-l-4 border-[#df4c2f] bg-[#fff8f4] p-5 md:grid-cols-[.7fr_1.3fr] md:p-6">
+        <div><p className="eyebrow">Recommendation</p><p className="mt-2 text-xl font-semibold">Start with top-3 token surprise.</p></div>
+        <p className="text-sm leading-6 text-[#505955]">It was the most consistent simple score across Instruct, Base, and HaluEval. Use entropy as a companion, always check answer length, and keep the tree and CRCV experimental. The tables below are the audit trail.</p>
+      </div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">Benchmark leaderboard</p>
@@ -917,9 +900,17 @@ function LiveLab({ model }: { model: ModelKind }) {
         setBusy(false);
         setStatus(message.qualityWarning
           ? 'Complete — generation failed the repetition check.'
-          : 'Complete — generation and metric replay agreed.');
+          : 'Complete — signals came from the exact generation pass.');
+        worker.terminate();
+        if (workerRef.current === worker) workerRef.current = null;
       }
-      if (message.type === 'error') { setError(message.message); setBusy(false); setStatus('Stopped'); }
+      if (message.type === 'error') {
+        setError(`${message.message}${runtime === 'webgpu' ? ' Try WASM if this GPU cannot complete the q4 graph.' : ''}`);
+        setBusy(false);
+        setStatus('Failed — no score was reported');
+        worker.terminate();
+        if (workerRef.current === worker) workerRef.current = null;
+      }
     };
     worker.postMessage({ type: 'run', model, question, runtime, maxNewTokens: 24 });
   };
@@ -930,18 +921,18 @@ function LiveLab({ model }: { model: ModelKind }) {
         <div>
           <p className="eyebrow">Local inference</p>
           <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">No server. Real hidden states.</h2>
-          <p className="mt-5 leading-7 text-[#69716d]">The page fetches the public quantized ONNX model, exposes the final 896-value state already inside its graph, and runs greedy generation in a worker. It then replays the exact chosen tokens to extract every signal. Your question and trace never leave the browser.</p>
+          <p className="mt-5 leading-7 text-[#69716d]">The page fetches the public quantized ONNX model, exposes the final 896-value state already inside its graph, and runs greedy generation in a worker. Confidence and hidden-state signals now come from that exact generation pass—there is no second replay. Your question and trace never leave the browser.</p>
           <div className="mt-6 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">
-            First run is large: roughly {runtime === 'webgpu' ? '483 MB with shader-f16, otherwise 750 MB compatibility mode' : '750 MB (q4)'}. The patched model is cached when browser quota permits. {webgpu ? 'This browser reports WebGPU support; the worker separately checks float16 shader support.' : 'WebGPU is unavailable, so use WASM.'}
+            First run is large: roughly 750 MB. WebGPU and WASM deliberately use the same q4 graph so runtime comparisons do not silently switch model precision. The patched model is cached when browser quota permits. {webgpu ? 'This browser reports WebGPU support.' : 'WebGPU is unavailable, so use WASM.'}
           </div>
           <ol className="mt-7 space-y-4 text-sm">
-            <Step number="01" text="Generate with the library's standard deterministic decoding path." />
-            <Step number="02" text="Replay those exact tokens; stop if even one chosen token disagrees." />
-            <Step number="03" text="Read confidence, margin, entropy, and final-state movement, then compute every score." />
+            <Step number="01" text="Generate greedily with all sampling and repetition penalties disabled." />
+            <Step number="02" text="Capture confidence and final hidden state from the same forward call that selects each token." />
+            <Step number="03" text="Verify the selected IDs, then compute every score from that single trace." />
           </ol>
         </div>
         <div className="card p-5 md:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b hairline pb-5"><div><p className="eyebrow">Browser console</p><p className="mt-1 font-semibold">Qwen2.5-0.5B {model === 'instruct' ? 'Instruct' : 'Base'} · {runtime.toUpperCase()}</p></div><span className="mono bg-[#eeeae1] px-3 py-2 text-xs">generate + verified replay</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b hairline pb-5"><div><p className="eyebrow">Browser console</p><p className="mt-1 font-semibold">Qwen2.5-0.5B {model === 'instruct' ? 'Instruct' : 'Base'} · {runtime.toUpperCase()}</p></div><span className="mono bg-[#eeeae1] px-3 py-2 text-xs">single-pass verified trace</span></div>
           <fieldset className="mt-5"><legend className="eyebrow">Runtime</legend><div className="mt-2 grid grid-cols-3 gap-2">{(['auto', 'webgpu', 'wasm'] as const).map((choice) => <button type="button" key={choice} onClick={() => setRuntimeChoice(choice)} disabled={busy || (choice === 'webgpu' && !webgpu)} className={`focus-ring border px-3 py-2 text-xs font-semibold uppercase ${runtimeChoice === choice ? 'border-[#18211d] bg-[#18211d] text-white' : 'hairline bg-white disabled:cursor-not-allowed disabled:opacity-40'}`}>{choice}</button>)}</div><p className="mt-2 text-xs text-[#69716d]">Auto currently resolves to {webgpu ? 'WebGPU' : 'WASM'}. Force WASM to compare the fallback path.</p></fieldset>
           <label className="mt-6 block"><span className="eyebrow">Question</span><textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} className="focus-ring mt-2 w-full resize-y border hairline bg-white p-3 leading-6" /></label>
           <button onClick={run} disabled={busy || !question.trim()} className="focus-ring mt-4 inline-flex w-full items-center justify-center gap-2 bg-[#df4c2f] px-5 py-3 font-bold text-white"><Play size={18} weight="fill" />{busy ? 'Working locally…' : 'Load model and calculate'}</button>
@@ -952,13 +943,13 @@ function LiveLab({ model }: { model: ModelKind }) {
           {result && <div className="mt-5 border-t hairline pt-5">
             <div className={`p-4 text-sm leading-6 ${result.qualityWarning ? 'bg-[#fbe9e2] text-[#8d2e1d]' : 'bg-[#e5efe8] text-[#245537]'}`}>
               <p className="font-semibold">{result.qualityWarning ? 'Generation integrity: warning' : 'Generation integrity: passed'}</p>
-              <p>{result.qualityWarning ?? 'Standard generation and signal replay selected the same token at every step; no repeated-trigram degeneration was detected.'}</p>
+              <p>{result.qualityWarning ?? 'Every displayed signal came from the forward pass that selected its token; no repeated-trigram degeneration was detected.'}</p>
               {result.qualityWarning && <p className="mt-1 font-semibold">Do not interpret the scores below as factuality evidence for this answer.</p>}
             </div>
             <p className="eyebrow mt-5">Generated answer</p><p className="mt-2 leading-7">{result.answer || 'No text was generated.'}</p>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['token_entropy_top3', 'top3_token_surprise', 'token_ambiguity_top3', 'crcv_mean'] as FeatureKey[]).map((key) => <div key={key} className="bg-[#eeeae1] p-3"><p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{format(result.features[key], 4)}</p></div>)}</div>
             <details className="mt-4 border hairline bg-white p-4"><summary className="focus-ring cursor-pointer text-sm font-semibold">Show all {metricKeys.length} live scores and formulas</summary><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{metricKeys.map((key) => <div key={key} className="bg-[#eeeae1] p-3"><p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? result.features[key] : format(result.features[key], 4)}</p><p className="mono mt-2 text-[9px] leading-4 text-[#69716d]">{metricDefinitions[key].formula}</p></div>)}</div></details>
-            <p className="mono mt-3 text-xs text-[#69716d]">{format(result.elapsedMs / 1000, 2)} s after model load · generation plus verified signal replay</p>
+            <p className="mono mt-3 text-xs text-[#69716d]">{format(result.elapsedMs / 1000, 2)} s after model load · single-pass generation and signal capture</p>
           </div>}
         </div>
       </div>
@@ -988,10 +979,10 @@ export default function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <Header model={model} onModel={setModel} view={view} onView={changeView} />
     <main id="main-content">
-      {view === 'overview' && <><Hero model={model} onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><BeginnerOverview model={model} onExplore={() => changeView('explore')} /></>}
+      {view === 'overview' && <><Hero onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><BeginnerOverview onExplore={() => changeView('explore')} /></>}
       {view === 'explore' && <><Results model={model} /><ExternalBenchmark /><QuestionLab model={model} /><MethodNote /></>}
       {view === 'live' && <><LiveLab model={model} /><MethodNote /></>}
     </main>
-    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>100 questions · 50 calibration / 50 held out · greedy decoding</span></div></footer>
+    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>100 generated answers + 50 HaluEval pairs · calibration separated from test</span></div></footer>
   </>;
 }

@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { AutoModelForCausalLM, AutoTokenizer, env } from '@huggingface/transformers';
+import { BROWSER_MODEL_DTYPE, DETERMINISTIC_GENERATION } from './lib/inference-config';
 import { liveFeatures } from './lib/metrics';
 import { exposeHiddenOutput, HIDDEN_NAME } from './lib/onnx-patch';
 import type { LiveToken, ModelKind, WorkerToMain } from './types';
@@ -191,15 +192,15 @@ function promptInputs(tokenizer: any, model: ModelKind, question: string): any {
   ], { add_generation_prompt: true, return_dict: true });
 }
 
-async function selectDtype(runtime: RunMessage['runtime']): Promise<{ dtype: 'q4' | 'q4f16'; detail: string }> {
-  if (runtime === 'wasm') return { dtype: 'q4', detail: 'WASM q4' };
+async function selectDtype(runtime: RunMessage['runtime']): Promise<{ dtype: 'q4'; detail: string }> {
+  if (runtime === 'wasm') return { dtype: BROWSER_MODEL_DTYPE, detail: 'WASM q4' };
   const gpu = (ctx.navigator as any).gpu;
   const adapter = await gpu?.requestAdapter();
   if (!adapter) throw new Error('WebGPU was selected, but this browser could not provide a GPU adapter. Choose WASM and retry.');
-  const shaderF16 = adapter.features?.has('shader-f16') ?? false;
-  return shaderF16
-    ? { dtype: 'q4f16', detail: 'WebGPU q4f16 (shader-f16 available)' }
-    : { dtype: 'q4', detail: 'WebGPU q4 compatibility mode (shader-f16 unavailable)' };
+  // Keep WebGPU and WASM on the same q4 graph. The smaller q4f16 graph can
+  // change greedy tokens on some adapters, which makes backend comparisons and
+  // factual demonstrations untrustworthy.
+  return { dtype: BROWSER_MODEL_DTYPE, detail: 'WebGPU q4 (same graph as WASM)' };
 }
 
 async function run(message: RunMessage): Promise<void> {
@@ -222,63 +223,70 @@ async function run(message: RunMessage): Promise<void> {
   if (!model.sessions.model.outputNames.includes(HIDDEN_NAME)) {
     throw new Error('The ONNX graph loaded without the requested hidden-state output. Clear this site’s model cache and retry.');
   }
-  send({ type: 'ready', model: message.model, runtime: message.runtime, dtype });
-  send({ type: 'status', phase: 'Inference', detail: 'greedy decoding with the library generation path' });
+  try {
+    send({ type: 'ready', model: message.model, runtime: message.runtime, dtype });
+    send({ type: 'status', phase: 'Inference', detail: 'greedy decoding and capturing the same forward-pass signals' });
 
-  const start = performance.now();
-  const generationInputs: any = promptInputs(tokenizer, message.model, message.question);
-  const promptLength = generationInputs.input_ids.dims.at(-1) as number;
-  const generated: any = await model.generate({
-    ...generationInputs,
-    do_sample: false,
-    max_new_tokens: message.maxNewTokens,
-  });
-  const sequenceTensor = generated.sequences ?? generated;
-  const fullSequence = (sequenceTensor.tolist()[0] as bigint[]).map(Number);
-  const eos = eosIds(model, tokenizer);
-  const generatedIds = fullSequence.slice(promptLength).filter((tokenId) => !eos.has(tokenId));
-  sequenceTensor.dispose?.();
+    const start = performance.now();
+    const generationInputs: any = promptInputs(tokenizer, message.model, message.question);
+    const promptLength = generationInputs.input_ids.dims.at(-1) as number;
+    const tracedTokens: LiveToken[] = [];
+    let previousHidden: Float32Array | null = null;
+    const originalForward = model.forward.bind(model);
 
-  send({ type: 'status', phase: 'Trace', detail: 'replaying the chosen tokens to expose every signal' });
-  let modelInputs: any = promptInputs(tokenizer, message.model, message.question);
-  const allInputIds: bigint[][] = modelInputs.input_ids.tolist();
-  const tokens: LiveToken[] = [];
-  let previousHidden: Float32Array | null = null;
-  const generationConfig = model.generation_config ?? {};
-
-  for (const generatedTokenId of generatedIds) {
-    modelInputs = model.prepare_inputs_for_generation(allInputIds, modelInputs, generationConfig);
-    const outputs: any = await model.forward(modelInputs);
-    const { tokenId, confidence, margin, entropy } = greedyToken(outputs.logits);
-    if (tokenId !== generatedTokenId) {
-      throw new Error(`Trace replay diverged from generation (${generatedTokenId} vs ${tokenId}).`);
-    }
-    const hidden = lastVector(outputs[HIDDEN_NAME]);
-    const hiddenSignals = hiddenObservables(hidden, previousHidden);
-    const token: LiveToken = {
-      tokenId,
-      token: tokenizer.decode([tokenId], { skip_special_tokens: false }),
-      confidence,
-      margin,
-      entropy,
-      ...hiddenSignals,
+    // Capture logits and hidden state from the exact forward call used by
+    // Transformers.js generation. This avoids a second numerically independent
+    // replay, which can disagree on GPU when two logits are close.
+    model.forward = async (inputs: any) => {
+      const outputs: any = await originalForward(inputs);
+      const { tokenId, confidence, margin, entropy } = greedyToken(outputs.logits);
+      const hidden = lastVector(outputs[HIDDEN_NAME]);
+      tracedTokens.push({
+        tokenId,
+        token: tokenizer.decode([tokenId], { skip_special_tokens: false }),
+        confidence,
+        margin,
+        entropy,
+        ...hiddenObservables(hidden, previousHidden),
+      });
+      previousHidden = hidden;
+      return outputs;
     };
-    previousHidden = hidden;
-    tokens.push(token);
-    send({ type: 'token', token });
-    allInputIds[0].push(BigInt(tokenId));
-    modelInputs = model._update_model_kwargs_for_generation({
-      generated_input_ids: [[BigInt(tokenId)]],
-      outputs,
-      model_inputs: modelInputs,
-      is_encoder_decoder: false,
-    });
-  }
 
-  const answer = tokenizer.decode(generatedIds, { skip_special_tokens: true }).trim();
-  const elapsedMs = performance.now() - start;
-  await model.dispose();
-  send({ type: 'result', answer, tokens, features: liveFeatures(tokens), elapsedMs, qualityWarning: repetitionWarning(generatedIds) });
+    let generated: any;
+    try {
+      generated = await model.generate({
+        ...generationInputs,
+        ...DETERMINISTIC_GENERATION,
+        max_new_tokens: message.maxNewTokens,
+      });
+    } finally {
+      model.forward = originalForward;
+    }
+
+    const sequenceTensor = generated.sequences ?? generated;
+    const fullSequence = (sequenceTensor.tolist()[0] as bigint[]).map(Number);
+    const generatedWithEos = fullSequence.slice(promptLength);
+    sequenceTensor.dispose?.();
+    if (tracedTokens.length < generatedWithEos.length) {
+      throw new Error(`Generation produced ${generatedWithEos.length} tokens but exposed only ${tracedTokens.length} signal steps.`);
+    }
+    generatedWithEos.forEach((generatedTokenId, index) => {
+      if (tracedTokens[index].tokenId !== generatedTokenId) {
+        throw new Error(`Generation signal mismatch at step ${index + 1} (${generatedTokenId} vs ${tracedTokens[index].tokenId}).`);
+      }
+    });
+
+    const eos = eosIds(model, tokenizer);
+    const tokens = tracedTokens.slice(0, generatedWithEos.length).filter((token) => !eos.has(token.tokenId));
+    tokens.forEach((token) => send({ type: 'token', token }));
+    const generatedIds = tokens.map((token) => token.tokenId);
+    const answer = tokenizer.decode(generatedIds, { skip_special_tokens: true }).trim();
+    const elapsedMs = performance.now() - start;
+    send({ type: 'result', answer, tokens, features: liveFeatures(tokens), elapsedMs, qualityWarning: repetitionWarning(generatedIds) });
+  } finally {
+    await model.dispose();
+  }
 }
 
 ctx.onmessage = (event: MessageEvent<RunMessage>) => {

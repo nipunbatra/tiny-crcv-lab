@@ -36,19 +36,21 @@ npm run test:web
 npm run dev
 ```
 
-The saved 100-question results load immediately. The **Run in browser** panel
-downloads a quantized public ONNX model on first use. WebGPU uses the 483 MB
-q4f16 graph when the adapter supports `shader-f16`; otherwise WebGPU and WASM
-use the compatible 750 MB q4 graph. The page exposes Auto, WebGPU, and WASM
-runtime controls and caches the patched graph when browser quota permits.
+The saved 100-question results load immediately. The **Try it** panel downloads
+a roughly 750 MB quantized public ONNX model on first use. WebGPU and WASM now
+deliberately use the same q4 graph; the earlier automatic q4f16 switch could
+change greedy tokens on some GPU adapters. The page exposes Auto, WebGPU, and
+WASM runtime controls and caches the patched graph when browser quota permits.
 
 The public ONNX exports normally expose only logits and KV-cache tensors. They
 still compute the final normalized hidden state immediately before `lm_head`.
 The app makes that existing 896-value tensor an additional graph output with a
 small in-browser protobuf edit. It generates with Transformers.js's standard
-deterministic path, then replays the exact selected tokens to extract signals.
-The run stops if replay selects a different token, and a repeated-trigram guard
-visibly invalidates degenerate output. This is not a KV-cache proxy and adds no
+deterministic path while intercepting the exact forward-pass outputs used to
+select each token. Sampling and the model card's repetition penalty are disabled,
+so displayed confidence is the raw distribution that chose the token. There is
+no second, numerically independent replay. A repeated-trigram guard visibly
+invalidates degenerate output. This is not a KV-cache proxy and adds no
 neural-network layer.
 
 `npm run build` creates `dist/`. The included GitHub Actions workflow tests,
