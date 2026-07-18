@@ -15,10 +15,11 @@ real [HaluEval QA benchmark](https://github.com/RUCAIBox/HaluEval) is now includ
 as an external, teacher-forced candidate-discrimination check.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
-The default view explains the result in plain language; **Explore details**
-contains a ranked 24-score benchmark, the exact arithmetic for every score on a
-real question, and all 100 generations; **Run locally** performs inference
-inside the browser and exposes every raw per-token input.
+The default view explains the result in plain language; **Evidence** compares all
+24 scalar methods side by side on the Instruct run, Base stress check, and
+HaluEval slice, then exposes each formula, confidence interval, and worked
+example. It also contains all 100 saved generations for each model; **Try it**
+performs inference inside the browser and exposes every raw per-token input.
 
 This is a research smoke test, not a production detector. It uses 100 fixed
 questions, calibrates score thresholds on 50, and reports results once on 50

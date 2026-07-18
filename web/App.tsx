@@ -135,9 +135,6 @@ const metricDefinitions: Record<FeatureKey, MetricDefinition> = {
   answer_tokens: { formula: 'L = n', plain: 'Number of generated tokens; a control for answer length.', input: 'generated token pieces', group: 'control' },
 };
 
-const originalMetricKeys: FeatureKey[] = ['crcv_mean', 'crcv_max', 'mean_nll', 'confidence_variance_mean', 'shift_variance_mean', 'answer_tokens'];
-const newMetricKeys = metricKeys.filter((key) => !originalMetricKeys.includes(key));
-
 const format = (value: number, digits = 3) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 
@@ -359,7 +356,7 @@ function BeginnerOverview({ onExplore }: { onExplore: () => void }) {
     <section className="border-b hairline bg-[#eae6dc] py-16">
       <div className="shell">
         <div className="flex flex-wrap items-end justify-between gap-5">
-          <div><p className="eyebrow">The evidence at a glance</p><h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">The same metrics on both datasets.</h2></div>
+          <div><p className="eyebrow">The evidence at a glance</p><h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Our 100 questions + HaluEval.</h2></div>
           <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC: how often a wrong candidate receives a higher risk score than a correct one. 0.500 is chance; 1.000 is perfect ranking.</p>
         </div>
         <div className="card mt-7 hidden overflow-x-auto md:block">
@@ -375,7 +372,7 @@ function BeginnerOverview({ onExplore }: { onExplore: () => void }) {
           <div className="bg-[#fbe9e2] p-5 text-sm leading-6 text-[#6f2d20]"><strong>Important HaluEval caveat.</strong> Its hallucinated answer was longer in all 25 held-out pairs, so even length scored 0.958. Treat the HaluEval column as a confounded stress test.</div>
           <div className="bg-[#fffdf8] p-5 text-sm leading-6"><strong>Operational recipe.</strong> Compute top-3 surprise → fit the review cutoff on labelled calibration examples → freeze it → measure once on fresh examples.</div>
         </div>
-        <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Open formulas, confidence intervals, and all examples <ArrowRight size={18} /></button>
+        <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Compare all 24 methods, formulas, and intervals <ArrowRight size={18} /></button>
       </div>
     </section>
   );
@@ -389,8 +386,23 @@ function Results({ model }: { model: ModelKind }) {
   const bench = benchmarks[model];
   const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('top3_token_surprise');
   const [metricFilter, setMetricFilter] = useState<'all' | MetricDefinition['group']>('all');
-  const leaderboard = [...metricKeys].sort((left, right) => bench.scores[right].test_auroc - bench.scores[left].test_auroc);
-  const visibleLeaderboard = leaderboard.filter((key) => metricFilter === 'all' || metricDefinitions[key].group === metricFilter);
+  const [comparisonSort, setComparisonSort] = useState<'robustness' | ModelKind | 'halueval'>('robustness');
+  const comparisonRows = metricKeys.map((key) => {
+    const instruct = benchmarks.instruct.scores[key].test_auroc;
+    const base = benchmarks.base.scores[key].test_auroc;
+    const halueval = haluevalMetrics.scores[key].test_auroc;
+    return { key, instruct, base, halueval, robustness: Math.min(instruct, base, halueval) };
+  }).sort((left, right) => {
+    const leftValue = comparisonSort === 'robustness' ? left.robustness : left[comparisonSort];
+    const rightValue = comparisonSort === 'robustness' ? right.robustness : right[comparisonSort];
+    return rightValue - leftValue || metricKeys.indexOf(left.key) - metricKeys.indexOf(right.key);
+  });
+  const visibleLeaderboard = comparisonRows.filter(({ key }) => metricFilter === 'all' || metricDefinitions[key].group === metricFilter);
+  const selectedContexts = [
+    { label: 'Our 100 · Instruct', detail: '50 held-out generations', metric: benchmarks.instruct.scores[selectedMetric] },
+    { label: 'Our 100 · Base', detail: 'same 50 held-out questions', metric: benchmarks.base.scores[selectedMetric] },
+    { label: 'HaluEval QA', detail: '25 held-out answer pairs', metric: haluevalMetrics.scores[selectedMetric] },
+  ];
   return (
     <section id="results" className="shell py-18">
       <div className="mb-8 grid gap-4 border-l-4 border-[#df4c2f] bg-[#fff8f4] p-5 md:grid-cols-[.7fr_1.3fr] md:p-6">
@@ -399,39 +411,52 @@ function Results({ model }: { model: ModelKind }) {
       </div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Benchmark leaderboard</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">{metricKeys.length} fast scores, ranked.</h2>
+          <p className="eyebrow">All methods × all evaluation contexts</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">The same {metricKeys.length} scores, side by side.</h2>
         </div>
-        <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC asks: if we draw one wrong and one correct answer, how often does the metric assign the wrong answer a higher score? Select any row to inspect its exact formula.</p>
+        <p className="max-w-xl text-sm leading-6 text-[#69716d]">Every scalar formula was applied to our Instruct generations, the Base-model stress check, and HaluEval candidates. Select a row to compare its intervals, thresholded F1, formula, and worked arithmetic.</p>
       </div>
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Metric family filter">
-        {(['all', 'distribution', 'confidence', 'coupled', 'hidden', 'control'] as const).map((group) => <button key={group} onClick={() => setMetricFilter(group)} className={`focus-ring px-3 py-2 text-xs font-semibold capitalize ${metricFilter === group ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{group === 'all' ? `All ${metricKeys.length}` : group}</button>)}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Metric family filter">
+          {(['all', 'distribution', 'confidence', 'coupled', 'hidden', 'control'] as const).map((group) => <button key={group} onClick={() => setMetricFilter(group)} className={`focus-ring px-3 py-2 text-xs font-semibold capitalize ${metricFilter === group ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{group === 'all' ? `All ${metricKeys.length}` : group}</button>)}
+        </div>
+        <label className="text-xs font-semibold text-[#69716d]">Rank by<select className="focus-ring ml-2 border hairline bg-white px-3 py-2 text-[#18211d]" value={comparisonSort} onChange={(event) => setComparisonSort(event.target.value as typeof comparisonSort)}><option value="robustness">worst of all three</option><option value="instruct">Instruct AUROC</option><option value="base">Base AUROC</option><option value="halueval">HaluEval AUROC</option></select></label>
       </div>
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[920px] border-collapse text-left">
+        <table className="w-full min-w-[1040px] border-collapse text-left">
           <thead className="bg-[#eeeae1] text-xs uppercase tracking-[.08em] text-[#69716d]">
-            <tr><th className="px-4 py-4">Rank</th><th className="px-4 py-4">Metric</th><th className="px-4 py-4">Test AUROC</th><th className="px-4 py-4">95% CI</th><th className="px-4 py-4">Calibration</th><th className="px-4 py-4">Macro-F1</th><th className="px-4 py-4">Formula</th></tr>
+            <tr><th className="px-4 py-4">Rank</th><th className="px-4 py-4">Scalar method</th><th className="px-4 py-4">Our 100<br /><span className="normal-case font-normal">Instruct test</span></th><th className="px-4 py-4">Our 100<br /><span className="normal-case font-normal">Base test</span></th><th className="px-4 py-4">HaluEval<br /><span className="normal-case font-normal">candidate test</span></th><th className="px-4 py-4">Worst of three</th><th className="px-4 py-4">Inspect</th></tr>
           </thead>
           <tbody>
-            {visibleLeaderboard.map((key) => {
-              const metric = bench.scores[key];
-              const index = leaderboard.indexOf(key);
-              const scoreWidth = `${Math.max(0, Math.min(100, metric.test_auroc * 100))}%`;
+            {visibleLeaderboard.map((row) => {
+              const key = row.key;
+              const index = comparisonRows.findIndex((item) => item.key === key);
               return (
                 <tr key={key} className={`border-t hairline align-middle ${selectedMetric === key ? 'bg-[#fff1ec]' : ''}`}>
                   <td className="mono px-4 py-5 text-[#69716d]">#{index + 1}</td>
-                  <td className="px-4 py-5 font-semibold">{metric.display_name}{newMetricKeys.includes(key) && <span className="ml-2 bg-[#e5f1eb] px-2 py-1 text-[10px] uppercase text-[#236349]">new</span>}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[10px] uppercase text-[#9e321e]">original</span>}<span className="ml-2 text-[10px] uppercase text-[#69716d]">{metricDefinitions[key].group}</span></td>
-                  <td className="px-4 py-5"><div className="flex items-center gap-3"><span className="mono w-12 font-semibold">{format(metric.test_auroc)}</span><div className="h-1.5 w-24 bg-[#e7e2d8]"><div className="h-full bg-[#df4c2f]" style={{ width: scoreWidth }} /></div></div></td>
-                  <td className="mono px-4 py-5 text-sm text-[#69716d]">{format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</td>
-                  <td className="mono px-4 py-5">{format(metric.calibration_auroc)}</td>
-                  <td className="mono px-4 py-5">{format(metric.test_macro_f1)}</td>
-                  <td className="px-4 py-5"><button onClick={() => setSelectedMetric(key)} className="focus-ring max-w-[240px] text-left text-xs leading-5 text-[#9e321e] underline decoration-[#df4c2f]/30 underline-offset-4">{metricDefinitions[key].formula}</button></td>
+                  <td className="px-4 py-5 font-semibold">{metricShort[key]}{key === 'top3_token_surprise' && <span className="ml-2 bg-[#df4c2f] px-2 py-1 text-[9px] uppercase text-white">recommended</span>}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[9px] uppercase text-[#9e321e]">original</span>}<span className="ml-2 text-[9px] uppercase text-[#69716d]">{metricDefinitions[key].group}</span></td>
+                  <td className="mono px-4 py-5 text-lg">{format(row.instruct)}</td>
+                  <td className="mono px-4 py-5 text-lg">{format(row.base)}</td>
+                  <td className="mono px-4 py-5 text-lg">{format(row.halueval)}</td>
+                  <td className="mono px-4 py-5 text-lg font-semibold">{format(row.robustness)}</td>
+                  <td className="px-4 py-5"><button onClick={() => setSelectedMetric(key)} className="focus-ring text-xs font-semibold text-[#9e321e] underline decoration-[#df4c2f]/30 underline-offset-4">formula + intervals</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <div className="mt-3 grid gap-px bg-[#d7d3c9] p-px sm:grid-cols-4">
+        <div className="bg-[#eeeae1] p-4"><p className="eyebrow">Learned method</p><p className="mt-2 font-semibold">Depth-2 tree</p></div>
+        <div className="bg-white p-4"><p className="text-[10px] text-[#69716d]">Instruct AUROC</p><p className="mono mt-1 text-lg">{format(shallowTrees.models.instruct.depth2_tree.test_auroc)}</p></div>
+        <div className="bg-white p-4"><p className="text-[10px] text-[#69716d]">Base AUROC</p><p className="mono mt-1 text-lg">{format(shallowTrees.models.base.depth2_tree.test_auroc)}</p></div>
+        <div className="bg-white p-4"><p className="text-[10px] text-[#69716d]">HaluEval AUROC</p><p className="mono mt-1 text-lg">{format(haluevalMetrics.depth2_tree.test_auroc)}</p><p className="mt-1 text-[10px] text-[#69716d]">Not scalar-ranked; it learns branches.</p></div>
+      </div>
+      <div className="card mt-5 overflow-hidden">
+        <div className="border-b hairline bg-[#eeeae1] p-4 md:p-5"><p className="eyebrow">Selected across every context</p><div className="mt-2 flex flex-wrap items-baseline justify-between gap-3"><h3 className="text-2xl font-semibold">{metricShort[selectedMetric]}</h3><p className="mono text-xs text-[#9e321e]">{metricDefinitions[selectedMetric].formula}</p></div></div>
+        <div className="grid gap-px bg-[#d7d3c9] md:grid-cols-3">{selectedContexts.map(({ label, detail, metric }) => <article className="bg-white p-5" key={label}><p className="font-semibold">{label}</p><p className="mt-1 text-xs text-[#69716d]">{detail}</p><p className="mono mt-4 text-3xl font-semibold">{format(metric.test_auroc)}</p><p className="mt-1 text-[10px] uppercase text-[#69716d]">test AUROC · 95% CI {format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</p><div className="mt-4 grid grid-cols-2 gap-2 border-t hairline pt-3 text-xs"><span>Macro-F1 <strong className="mono block text-sm">{format(metric.test_macro_f1)}</strong></span><span>Cal. cutoff <strong className="mono block text-sm">{format(metric.threshold, 4)}</strong></span></div>{metric.test_pairwise_accuracy !== undefined && <p className="mt-3 text-xs text-[#69716d]">Pair accuracy <strong className="mono text-[#18211d]">{format(metric.test_pairwise_accuracy)}</strong></p>}</article>)}</div>
+      </div>
+      <p className="mt-4 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">These columns are not interchangeable datasets: our 100-question run scores the model’s own generated answers; HaluEval scores supplied right versus hallucinated candidates under knowledge. HaluEval is strongly length-confounded, so compare patterns—not just its larger numbers.</p>
       <MetricGuide model={model} selected={selectedMetric} onSelect={setSelectedMetric} />
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <Insight icon={<Gauge size={20} />} label="Entropy threshold" value={format(bench.scores.token_entropy_top3.threshold, 4)} text="Chosen only on the 50 calibration questions by maximum macro-F1." />
