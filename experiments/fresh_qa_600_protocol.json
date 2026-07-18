@@ -1,0 +1,125 @@
+{
+  "status": "predeclared before fetching rows, generating answers, fitting probes, or inspecting results",
+  "created_date": "2026-07-18",
+  "research_question": "Do three stronger but still small reference-free baselines improve on frozen top-3 token surprise on fresh short-answer QA?",
+  "datasets": [
+    {
+      "key": "nq_open",
+      "dataset": "google-research-datasets/nq_open",
+      "config": "nq_open",
+      "source_split": "validation",
+      "population_rows": 3610,
+      "sample_rows": 200,
+      "sampling_seed": 20260721,
+      "question_field": "question",
+      "answer_field": "answer"
+    },
+    {
+      "key": "trivia_qa",
+      "dataset": "mandarjoshi/trivia_qa",
+      "config": "rc.nocontext",
+      "source_split": "validation",
+      "population_rows": 17944,
+      "sample_rows": 200,
+      "sampling_seed": 20260722,
+      "question_field": "question",
+      "answer_field": "answer.aliases"
+    },
+    {
+      "key": "truthful_qa",
+      "dataset": "truthfulqa/truthful_qa",
+      "config": "generation",
+      "source_split": "validation",
+      "population_rows": 817,
+      "sample_rows": 200,
+      "sampling_seed": 20260723,
+      "question_field": "question",
+      "answer_field": "correct_answers"
+    }
+  ],
+  "sampling": {
+    "rule": "For each dataset, random.Random(sampling_seed).sample(range(population_rows), 200), then sort source indices for retrieval.",
+    "split_seed": 20260724,
+    "split_rule": "Within each dataset, shuffle the 200 selected indices with random.Random(split_seed + dataset position); first 100 are calibration and remaining 100 are held out.",
+    "total_questions": 600,
+    "calibration_questions": 300,
+    "held_out_questions": 300,
+    "split_unit": "question"
+  },
+  "models": [
+    {
+      "key": "instruct",
+      "id": "Qwen/Qwen2.5-0.5B-Instruct",
+      "prompt_style": "instruct"
+    },
+    {
+      "key": "base",
+      "id": "Qwen/Qwen2.5-0.5B",
+      "prompt_style": "base"
+    }
+  ],
+  "generation": {
+    "primary_decoding": "greedy with no repetition penalty",
+    "max_new_tokens": 24,
+    "stochastic_samples": 3,
+    "sampling_temperature": 1.0,
+    "sampling_top_k": 50,
+    "sampling_top_p": 0.95,
+    "sampling_seed": 2026072500
+  },
+  "label": {
+    "positive": "the normalized greedy answer contains none of the normalized accepted answer aliases",
+    "negative": "at least one normalized accepted alias occurs as a whole phrase",
+    "warning": "This transparent lexical label can miss semantically correct paraphrases and must be audited."
+  },
+  "methods": {
+    "top3_token_surprise": {
+      "role": "frozen primary baseline from the previous experiment",
+      "formula": "mean of the three largest -ln p(chosen token) values from the greedy generation",
+      "training": "none"
+    },
+    "p_true": {
+      "role": "one-extra-pass self-assessment baseline",
+      "formula": "p(No) / (p(Yes) + p(No)) for a fixed correctness-verification prompt",
+      "training": "none"
+    },
+    "hidden_logistic_probe": {
+      "role": "small supervised internal-state baseline",
+      "input": "mean final-layer state aligned to greedy answer-token decisions (896 values)",
+      "standardization": "per-coordinate mean and population standard deviation from calibration only; standard deviations below 1e-6 become 1",
+      "model": "one linear layer with sigmoid",
+      "optimizer": "full-batch Adam, learning rate 0.03, 800 steps, weight decay 0.01",
+      "loss": "class-balanced binary cross entropy",
+      "seed": 20260726,
+      "selection": "no hyperparameter search"
+    },
+    "semantic_disagreement_3": {
+      "role": "small multi-sample semantic-consistency baseline",
+      "formula": "mean of three pairwise p(No)/(p(Yes)+p(No)) same-answer judgments over three stochastic answers",
+      "judge": "the same Qwen checkpoint under a fixed binary equivalence prompt",
+      "training": "none"
+    },
+    "answer_tokens": {
+      "role": "mandatory length-confound control",
+      "formula": "number of greedy answer tokens",
+      "training": "none"
+    }
+  },
+  "evaluation": {
+    "method_selection": "none; report every predeclared method",
+    "classification_threshold": "maximize macro-F1 on the pooled 300-question calibration split, then freeze",
+    "primary_metric": "held-out AUROC",
+    "secondary_metrics": [
+      "bootstrap 95% AUROC interval",
+      "average precision",
+      "macro-F1 at frozen threshold",
+      "confusion matrix",
+      "accuracy at 90%, 80%, and 70% coverage after rejecting highest-risk answers",
+      "incremental latency"
+    ],
+    "slices": "pooled held-out set and each dataset separately",
+    "bootstrap_seed": 20260727,
+    "bootstrap_samples": 2000
+  },
+  "interpretation_rule": "No method is called better unless its paired bootstrap AUROC-difference interval against frozen top-3 surprise excludes zero on the pooled held-out set. Dataset-slice consistency and cost remain mandatory context."
+}
