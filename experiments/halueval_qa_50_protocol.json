@@ -1,0 +1,59 @@
+{
+  "status": "predeclared before fetching or evaluating the selected held-out rows",
+  "source": {
+    "benchmark": "HaluEval QA",
+    "official_repository": "https://github.com/RUCAIBox/HaluEval",
+    "viewer_mirror": "pminervini/HaluEval",
+    "viewer_config": "qa",
+    "viewer_split": "data",
+    "license": "MIT"
+  },
+  "sampling": {
+    "population_pairs": 10000,
+    "pairs": 50,
+    "candidates": 100,
+    "rule": "sample 5 source indices from each consecutive 1000-row block",
+    "sampling_seed": 20260718,
+    "split_seed": 20260719,
+    "source_indices": [63, 261, 335, 387, 918, 1066, 1372, 1587, 1764, 1785, 2051, 2174, 2356, 2471, 2958, 3039, 3132, 3543, 3945, 3957, 4122, 4451, 4619, 4718, 4857, 5125, 5413, 5645, 5665, 5876, 6386, 6470, 6727, 6789, 6888, 7240, 7463, 7641, 7825, 7913, 8047, 8131, 8160, 8231, 8233, 9220, 9384, 9500, 9548, 9949],
+    "calibration_pair_indices": [261, 1066, 1764, 1785, 2051, 2356, 3945, 3957, 4122, 4451, 4619, 4718, 4857, 5413, 5665, 5876, 6386, 6470, 7240, 7463, 7825, 7913, 8131, 8160, 9384],
+    "split_unit": "question pair; the right and hallucinated candidate always stay together",
+    "calibration_candidates": 50,
+    "held_out_candidates": 50
+  },
+  "task": {
+    "mode": "teacher-force each supplied candidate answer under its supplied knowledge and question",
+    "positive_label": "HaluEval hallucinated_answer",
+    "negative_label": "HaluEval right_answer",
+    "warning": "This tests grounded candidate-answer discrimination, not free-generation correctness. Length and generator style may be confounds."
+  },
+  "model": {
+    "id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "layer": -1,
+    "prompt_style": "grounded_instruct"
+  },
+  "scalar_protocol": {
+    "candidates": "the 24 already implemented answer-level scores; no new score will be invented after viewing held-out results",
+    "selection": "maximum calibration AUROC, with higher score predeclared as more likely hallucinated",
+    "classification_threshold": "maximize macro-F1 on calibration only",
+    "held_out_metrics": ["AUROC", "bootstrap 95% CI", "macro-F1", "paired question-ranking accuracy"]
+  },
+  "tree_protocol": {
+    "primary_model": "deterministic CART-style binary tree",
+    "max_depth": 2,
+    "minimum_leaf_candidates": 8,
+    "split_objective": "weighted Gini impurity on calibration only",
+    "features": [
+      "top3_token_surprise",
+      "token_entropy_top3",
+      "token_ambiguity_top3",
+      "surprise_shift_top3",
+      "hidden_cosine_top3",
+      "answer_tokens"
+    ],
+    "leaf_score": "calibration hallucination fraction",
+    "classification_threshold": "maximize macro-F1 on calibration only",
+    "held_out_metrics": ["AUROC", "bootstrap 95% CI", "macro-F1", "paired question-ranking accuracy"],
+    "diagnostic_only": "also report a depth-1 stump; do not select depth using held-out results"
+  }
+}
