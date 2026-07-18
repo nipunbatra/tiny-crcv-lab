@@ -18,3 +18,15 @@ outputs/*
 !outputs/shallow_tree_results.json
 !outputs/halueval_qwen05b_100/
 !outputs/halueval_qwen05b_100/**
+!outputs/fresh_qa_qwen05b_instruct/
+!outputs/fresh_qa_qwen05b_instruct/metadata.json
+!outputs/fresh_qa_qwen05b_instruct/metrics.json
+!outputs/fresh_qa_qwen05b_instruct/predictions.jsonl
+!outputs/fresh_qa_qwen05b_instruct/hidden_probe.npz
+!outputs/fresh_qa_qwen05b_instruct/report.md
+!outputs/fresh_qa_qwen05b_base/
+!outputs/fresh_qa_qwen05b_base/metadata.json
+!outputs/fresh_qa_qwen05b_base/metrics.json
+!outputs/fresh_qa_qwen05b_base/predictions.jsonl
+!outputs/fresh_qa_qwen05b_base/hidden_probe.npz
+!outputs/fresh_qa_qwen05b_base/report.md

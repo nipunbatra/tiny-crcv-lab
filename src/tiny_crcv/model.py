@@ -1,4 +1,4 @@
-"""Single-pass greedy generation with token-distribution and hidden-state signals."""
+"""Autoregressive generation with token-distribution and hidden-state signals."""
 
 from __future__ import annotations
 
@@ -18,6 +18,17 @@ class GenerationTrace:
     token_entropies: list[float]
     hidden_cosine_distances: list[float | None]
     hidden_norms: list[float]
+    mean_hidden: list[float]
+    elapsed_seconds: float
+
+
+@dataclass(frozen=True)
+class BinaryJudgmentTrace:
+    yes_probability: float
+    no_probability: float
+    normalized_no_probability: float
+    yes_token_id: int
+    no_token_id: int
     elapsed_seconds: float
 
 
@@ -122,8 +133,88 @@ class WhiteBoxGenerator:
             return_tensors="pt",
         ).to(self.device)
 
-    def generate(self, question: str, *, max_new_tokens: int) -> GenerationTrace:
-        """Greedily generate once and record the state used to choose each token.
+    def _judge_prompt_ids(self, instruction: str):
+        if self.prompt_style == "base":
+            prompt = f"{instruction}\nReply only Yes or No.\nVerdict:"
+            return self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.device)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Judge the proposed factual answer. Follow the requested binary "
+                    "response exactly and add no explanation."
+                ),
+            },
+            {"role": "user", "content": f"{instruction}\nReply only Yes or No."},
+        ]
+        return self.tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+        ).to(self.device)
+
+    def _binary_token_ids(self) -> tuple[int, int]:
+        yes_text, no_text = (" Yes", " No") if self.prompt_style == "base" else ("Yes", "No")
+        yes_ids = self.tokenizer.encode(yes_text, add_special_tokens=False)
+        no_ids = self.tokenizer.encode(no_text, add_special_tokens=False)
+        if len(yes_ids) != 1 or len(no_ids) != 1:
+            raise ValueError("binary judge requires single-token Yes and No encodings")
+        return int(yes_ids[0]), int(no_ids[0])
+
+    def _score_binary_judgment(self, instruction: str) -> BinaryJudgmentTrace:
+        torch = self.torch
+        input_ids = self._judge_prompt_ids(instruction)
+        yes_token_id, no_token_id = self._binary_token_ids()
+        started = time.perf_counter()
+        with torch.inference_mode():
+            outputs = self.model(
+                input_ids=input_ids,
+                use_cache=False,
+                output_hidden_states=False,
+                return_dict=True,
+            )
+            probabilities = torch.softmax(outputs.logits[0, -1, :].float(), dim=-1)
+            yes_probability = float(probabilities[yes_token_id].item())
+            no_probability = float(probabilities[no_token_id].item())
+        denominator = yes_probability + no_probability
+        normalized_no = no_probability / denominator if denominator else 0.5
+        return BinaryJudgmentTrace(
+            yes_probability=yes_probability,
+            no_probability=no_probability,
+            normalized_no_probability=normalized_no,
+            yes_token_id=yes_token_id,
+            no_token_id=no_token_id,
+            elapsed_seconds=time.perf_counter() - started,
+        )
+
+    def score_correctness(self, question: str, answer: str) -> BinaryJudgmentTrace:
+        """Return P(No | fixed correctness prompt), normalized over Yes and No."""
+        return self._score_binary_judgment(
+            f"Question: {question}\nProposed answer: {answer}\n"
+            "Is the proposed answer factually correct?"
+        )
+
+    def score_equivalence(
+        self, question: str, answer_a: str, answer_b: str
+    ) -> BinaryJudgmentTrace:
+        """Return P(No | fixed same-answer prompt), normalized over Yes and No."""
+        return self._score_binary_judgment(
+            f"Question: {question}\nAnswer A: {answer_a}\nAnswer B: {answer_b}\n"
+            "Do Answer A and Answer B give the same factual answer?"
+        )
+
+    def generate(
+        self,
+        question: str,
+        *,
+        max_new_tokens: int,
+        do_sample: bool = False,
+        seed: int | None = None,
+        temperature: float = 1.0,
+        top_k: int = 50,
+        top_p: float = 0.95,
+    ) -> GenerationTrace:
+        """Generate once and record the state used to choose each token.
 
         At step ``t``, confidence and hidden state are both taken from the model output
         that predicts token ``t``. The first generated step has no preceding state, so
@@ -139,6 +230,17 @@ class WhiteBoxGenerator:
         hidden_cosine_distances: list[float | None] = []
         hidden_norms: list[float] = []
         previous_hidden = None
+        hidden_sum = None
+        cpu_generator = None
+        if do_sample:
+            if temperature <= 0:
+                raise ValueError("temperature must be positive")
+            if top_k < 2:
+                raise ValueError("top_k must be at least 2")
+            if not 0 < top_p <= 1:
+                raise ValueError("top_p must be in (0, 1]")
+            cpu_generator = torch.Generator(device="cpu")
+            cpu_generator.manual_seed(0 if seed is None else seed)
 
         start = time.perf_counter()
         with torch.inference_mode():
@@ -153,20 +255,44 @@ class WhiteBoxGenerator:
             current_hidden = outputs.hidden_states[self.layer][:, -1, :]
 
             for _ in range(max_new_tokens):
-                next_token = torch.argmax(logits, dim=-1)
-                next_token_id = int(next_token.item())
+                if do_sample:
+                    sample_count = min(top_k, int(logits.shape[-1]))
+                    top_values, top_indices = torch.topk(
+                        logits.float() / temperature, k=sample_count, dim=-1
+                    )
+                    sample_probabilities = torch.softmax(top_values[0].cpu(), dim=-1)
+                    cumulative = torch.cumsum(sample_probabilities, dim=-1)
+                    keep = cumulative - sample_probabilities < top_p
+                    filtered = sample_probabilities * keep
+                    filtered = filtered / filtered.sum()
+                    sampled_position = int(
+                        torch.multinomial(
+                            filtered, 1, generator=cpu_generator
+                        ).item()
+                    )
+                    next_token_id = int(top_indices[0, sampled_position].item())
+                    next_token = torch.tensor([next_token_id], device=self.device)
+                else:
+                    next_token = torch.argmax(logits, dim=-1)
+                    next_token_id = int(next_token.item())
                 if next_token_id in self.eos_ids:
                     break
 
                 log_probabilities = torch.log_softmax(logits.float(), dim=-1)
                 top_probabilities = torch.exp(torch.topk(log_probabilities, k=2, dim=-1).values)
-                confidence = float(top_probabilities[0, 0].item())
+                confidence = float(torch.exp(log_probabilities[0, next_token_id]).item())
                 token_margin = float((top_probabilities[0, 0] - top_probabilities[0, 1]).item())
                 probabilities = torch.exp(log_probabilities)
                 token_entropy = float(
                     (-(probabilities * log_probabilities).sum() / math.log(logits.shape[-1])).item()
                 )
                 current_float = current_hidden.float()
+                current_vector = current_float.reshape(-1)
+                hidden_sum = (
+                    current_vector.detach().clone()
+                    if hidden_sum is None
+                    else hidden_sum + current_vector.detach()
+                )
                 hidden_norm = float(
                     (torch.linalg.vector_norm(current_float) / math.sqrt(current_float.shape[-1])).item()
                 )
@@ -205,6 +331,10 @@ class WhiteBoxGenerator:
                 current_hidden = outputs.hidden_states[self.layer][:, -1, :]
 
         elapsed = time.perf_counter() - start
+        if hidden_sum is None:
+            mean_hidden = current_hidden.float().reshape(-1)
+        else:
+            mean_hidden = hidden_sum / len(token_ids)
         return GenerationTrace(
             answer=self.tokenizer.decode(token_ids, skip_special_tokens=True).strip(),
             token_ids=token_ids,
@@ -218,6 +348,7 @@ class WhiteBoxGenerator:
             token_entropies=token_entropies,
             hidden_cosine_distances=hidden_cosine_distances,
             hidden_norms=hidden_norms,
+            mean_hidden=[float(value) for value in mean_hidden.cpu().tolist()],
             elapsed_seconds=elapsed,
         )
 
@@ -287,6 +418,7 @@ class WhiteBoxGenerator:
 
         token_ids = [int(value) for value in answer_ids[0].tolist()]
         elapsed = time.perf_counter() - started
+        mean_hidden = hidden.mean(dim=1)[0]
         return GenerationTrace(
             answer=candidate_answer.strip(),
             token_ids=token_ids,
@@ -300,5 +432,6 @@ class WhiteBoxGenerator:
             token_entropies=[float(value) for value in entropies[0].tolist()],
             hidden_cosine_distances=cosine_distances,
             hidden_norms=[float(value) for value in norms[0].tolist()],
+            mean_hidden=[float(value) for value in mean_hidden.cpu().tolist()],
             elapsed_seconds=elapsed,
         )

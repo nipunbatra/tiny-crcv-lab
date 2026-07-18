@@ -1,6 +1,7 @@
 import pytest
 
 from tiny_crcv.core import (
+    average_precision,
     answer_matches,
     auroc,
     bootstrap_auroc_difference_ci,
@@ -9,6 +10,7 @@ from tiny_crcv.core import (
     macro_f1,
     normalize_answer,
     rolling_sample_std,
+    selective_accuracy,
 )
 
 
@@ -61,6 +63,15 @@ def test_auroc_and_macro_f1() -> None:
     )
     assert difference == 1.0
     assert low <= difference <= high
+
+
+def test_average_precision_is_tie_aware() -> None:
+    assert average_precision([1, 0, 1], [0.9, 0.8, 0.7]) == pytest.approx(5 / 6)
+    assert average_precision([1, 0], [0.5, 0.5]) == pytest.approx(0.5)
+
+
+def test_selective_accuracy_keeps_lowest_risks() -> None:
+    assert selective_accuracy([0, 1, 0, 1], [0.1, 0.9, 0.2, 0.8], 0.5) == 1.0
 
 
 def test_calibration_uses_high_scores_as_positive() -> None:

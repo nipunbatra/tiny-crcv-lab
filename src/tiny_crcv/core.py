@@ -158,6 +158,43 @@ def auroc(labels: Sequence[int], scores: Sequence[float]) -> float:
     return wins / (len(positives) * len(negatives))
 
 
+def average_precision(labels: Sequence[int], scores: Sequence[float]) -> float:
+    """Compute tie-aware average precision for high-score-means-positive risks."""
+    if len(labels) != len(scores) or not labels:
+        raise ValueError("labels and scores must be non-empty and have the same length")
+    positive_count = sum(label == 1 for label in labels)
+    if positive_count == 0:
+        raise ValueError("average precision requires at least one positive example")
+
+    score_groups: dict[float, list[int]] = {}
+    for label, score in zip(labels, scores, strict=True):
+        score_groups.setdefault(float(score), []).append(int(label))
+
+    seen = 0
+    true_positives = 0
+    result = 0.0
+    for score in sorted(score_groups, reverse=True):
+        group = score_groups[score]
+        group_positives = sum(label == 1 for label in group)
+        seen += len(group)
+        true_positives += group_positives
+        result += (group_positives / positive_count) * (true_positives / seen)
+    return result
+
+
+def selective_accuracy(
+    labels: Sequence[int], scores: Sequence[float], coverage: float
+) -> float:
+    """Accuracy among the lowest-risk fraction, where label 1 means incorrect."""
+    if len(labels) != len(scores) or not labels:
+        raise ValueError("labels and scores must be non-empty and have the same length")
+    if not 0 < coverage <= 1:
+        raise ValueError("coverage must be in (0, 1]")
+    keep = max(1, round(len(labels) * coverage))
+    ranked = sorted(range(len(labels)), key=lambda index: (scores[index], index))[:keep]
+    return sum(labels[index] == 0 for index in ranked) / keep
+
+
 def macro_f1(labels: Sequence[int], predictions: Sequence[int]) -> float:
     """Unweighted mean of the positive- and negative-class F1 values."""
     class_f1s: list[float] = []
