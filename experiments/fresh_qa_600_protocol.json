@@ -60,6 +60,8 @@
   ],
   "generation": {
     "primary_decoding": "greedy with no repetition penalty",
+    "instruct_prompt": "System: Answer factual questions directly. If uncertain, give your best answer. Keep the response brief. User: {question} Give only the short answer, with no explanation.",
+    "base_prompt": "Question: {question}\\nAnswer:",
     "max_new_tokens": 24,
     "stochastic_samples": 3,
     "sampling_temperature": 1.0,
@@ -67,6 +69,15 @@
     "sampling_top_p": 0.95,
     "sampling_seed": 2026072500
   },
+  "protocol_amendments": [
+    {
+      "date": "2026-07-18",
+      "stage": "after a 126-row runtime feasibility trace, before completing either model, fitting a probe, or computing aggregate metrics",
+      "reason": "The original Instruct bracket-replacement prompt was copied literally on many questions, confounding factual error with format-following failure.",
+      "change": "Replaced the bracketed sentence frame with the direct short-answer prompts now recorded under generation; restarted the run from zero for both checkpoints.",
+      "disclosure": "This prompt repair was informed by generated text and is therefore an explicit protocol amendment, not part of the untouched preregistration. No detector scores or aggregate metrics had been inspected."
+    }
+  ],
   "label": {
     "positive": "the normalized greedy answer contains none of the normalized accepted answer aliases",
     "negative": "at least one normalized accepted alias occurs as a whole phrase",

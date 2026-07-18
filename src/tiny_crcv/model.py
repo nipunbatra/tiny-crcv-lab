@@ -83,10 +83,7 @@ class WhiteBoxGenerator:
 
     def _prompt_ids(self, question: str):
         if self.prompt_style == "base":
-            prompt = (
-                f"Question: {question}\n"
-                "Answer with one short factual sentence and no explanation:"
-            )
+            prompt = f"Question: {question}\nAnswer:"
             return self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.device)
         if self.prompt_style != "instruct":
             raise ValueError(f"unsupported prompt style: {self.prompt_style}")
@@ -94,17 +91,13 @@ class WhiteBoxGenerator:
             {
                 "role": "system",
                 "content": (
-                    "Answer factual questions directly and state your best answer even if "
-                    "uncertain. Follow the requested sentence frame exactly and add no facts."
+                    "Answer factual questions directly. If uncertain, give your best answer. "
+                    "Keep the response brief."
                 ),
             },
             {
                 "role": "user",
-                "content": (
-                    f"{question}\nReplace only the bracketed text in this frame: "
-                    "'The requested answer is [short answer], stated as my best factual "
-                    "response.' Add no explanation or supporting detail."
-                ),
+                "content": f"{question}\nGive only the short answer, with no explanation.",
             },
         ]
         return self.tokenizer.apply_chat_template(

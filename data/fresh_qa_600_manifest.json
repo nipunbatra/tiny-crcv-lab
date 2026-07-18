@@ -1,7 +1,8 @@
 {
   "status": "resolved entirely from the predeclared sampling algorithm",
   "protocol": "experiments/fresh_qa_600_protocol.json",
-  "protocol_sha256": "5d0d9d20d2447bd5eae492f7e8246f6fff8c0c5e0efbbaac5f6d5250e37774d0",
+  "protocol_sha256": "daf00f79a2341d35e1694092f808037f85c27957df5c86941a1a0aac843599a9",
+  "protocol_note": "The recorded prompt amendment does not change the predeclared row sampling or calibration/test assignment.",
   "data_sha256": "dcc4f8648875543edb6509cc332a8b6981a248ad55058983225e08e4b4dd8efa",
   "rows": 600,
   "datasets": [
