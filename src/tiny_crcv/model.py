@@ -102,6 +102,26 @@ class WhiteBoxGenerator:
             return_tensors="pt",
         ).to(self.device)
 
+    def _grounded_prompt_ids(self, knowledge: str, question: str):
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Answer using only the supplied knowledge. Do not add unsupported "
+                    "facts. Give only the direct answer."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Knowledge:\n{knowledge}\n\nQuestion:\n{question}",
+            },
+        ]
+        return self.tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+        ).to(self.device)
+
     def generate(self, question: str, *, max_new_tokens: int) -> GenerationTrace:
         """Greedily generate once and record the state used to choose each token.
 
@@ -198,5 +218,87 @@ class WhiteBoxGenerator:
             token_entropies=token_entropies,
             hidden_cosine_distances=hidden_cosine_distances,
             hidden_norms=hidden_norms,
+            elapsed_seconds=elapsed,
+        )
+
+    def score_candidate(
+        self, knowledge: str, question: str, candidate_answer: str
+    ) -> GenerationTrace:
+        """Teacher-force one supplied grounded answer and capture prediction signals.
+
+        At answer token ``t``, logits and hidden state come from the immediately
+        preceding sequence position—the same alignment used during autoregressive
+        generation. No candidate text is generated or altered.
+        """
+        torch = self.torch
+        prompt_ids = self._grounded_prompt_ids(knowledge, question)
+        answer_ids = self.tokenizer(
+            candidate_answer.strip(),
+            add_special_tokens=False,
+            return_tensors="pt",
+        ).input_ids.to(self.device)
+        if answer_ids.shape[-1] == 0:
+            raise ValueError("candidate answer must contain at least one token")
+
+        prompt_length = int(prompt_ids.shape[-1])
+        answer_length = int(answer_ids.shape[-1])
+        full_ids = torch.cat([prompt_ids, answer_ids], dim=-1)
+        start = prompt_length - 1
+        end = start + answer_length
+
+        started = time.perf_counter()
+        with torch.inference_mode():
+            outputs = self.model(
+                input_ids=full_ids,
+                use_cache=False,
+                output_hidden_states=True,
+                return_dict=True,
+            )
+            logits = outputs.logits[:, start:end, :].float()
+            hidden = outputs.hidden_states[self.layer][:, start:end, :].float()
+            log_probabilities = torch.log_softmax(logits, dim=-1)
+            probabilities = torch.exp(log_probabilities)
+            candidate_probabilities = torch.gather(
+                probabilities, -1, answer_ids.unsqueeze(-1)
+            ).squeeze(-1)
+            top_probabilities = torch.topk(probabilities, k=2, dim=-1).values
+            margins = top_probabilities[..., 0] - top_probabilities[..., 1]
+            entropies = -(
+                probabilities * log_probabilities
+            ).sum(dim=-1) / math.log(logits.shape[-1])
+            norms = torch.linalg.vector_norm(hidden, dim=-1) / math.sqrt(hidden.shape[-1])
+
+            shifts: list[float | None] = [None]
+            cosine_distances: list[float | None] = [None]
+            if answer_length > 1:
+                current = hidden[:, 1:, :]
+                previous = hidden[:, :-1, :]
+                shift_values = torch.linalg.vector_norm(
+                    current - previous, dim=-1
+                ) / (torch.linalg.vector_norm(previous, dim=-1) + 1e-8)
+                cosine = torch.nn.functional.cosine_similarity(
+                    current, previous, dim=-1, eps=1e-8
+                )
+                shifts.extend(float(value) for value in shift_values[0].tolist())
+                cosine_distances.extend(
+                    float(value)
+                    for value in torch.clamp(1.0 - cosine, 0.0, 2.0)[0].tolist()
+                )
+
+        token_ids = [int(value) for value in answer_ids[0].tolist()]
+        elapsed = time.perf_counter() - started
+        return GenerationTrace(
+            answer=candidate_answer.strip(),
+            token_ids=token_ids,
+            token_pieces=[
+                self.tokenizer.decode([token_id], skip_special_tokens=False)
+                for token_id in token_ids
+            ],
+            confidences=[float(value) for value in candidate_probabilities[0].tolist()],
+            shifts=shifts,
+            token_margins=[float(value) for value in margins[0].tolist()],
+            token_entropies=[float(value) for value in entropies[0].tolist()],
+            hidden_cosine_distances=cosine_distances,
+            hidden_norms=[float(value) for value in norms[0].tolist()],
             elapsed_seconds=elapsed,
         )

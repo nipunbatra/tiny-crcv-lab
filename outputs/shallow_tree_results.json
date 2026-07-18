@@ -1,0 +1,249 @@
+{
+  "status": "exploratory; existing held-out splits were inspected previously",
+  "protocol": {
+    "features": [
+      "top3_token_surprise",
+      "token_entropy_top3",
+      "token_ambiguity_top3",
+      "surprise_shift_top3",
+      "hidden_cosine_top3",
+      "answer_tokens"
+    ],
+    "primary_depth": 2,
+    "diagnostic_depth": 1,
+    "minimum_leaf_candidates": 8,
+    "training_split": "calibration only"
+  },
+  "models": {
+    "instruct": {
+      "selected_scalar": {
+        "score_key": "token_entropy_top3",
+        "display_name": "Top-3 token entropy",
+        "direction": "higher score predicts an incorrect answer",
+        "calibration_auroc": 0.8492647058823529,
+        "calibration_macro_f1": 0.8300145701796988,
+        "threshold": 0.21594763671358427,
+        "test_auroc": 0.8247619047619048,
+        "test_auroc_ci_95": [
+          0.6994906621392191,
+          0.9293924466338259
+        ],
+        "test_macro_f1": 0.6894409937888198,
+        "test_confusion": {
+          "true_negative": 33,
+          "false_positive": 2,
+          "false_negative": 9,
+          "true_positive": 6
+        }
+      },
+      "stump": {
+        "calibration_auroc": 0.8143382352941176,
+        "calibration_macro_f1": 0.8300145701796988,
+        "threshold": 0.49064449064449067,
+        "test_auroc": 0.6714285714285714,
+        "test_auroc_ci_95": [
+          0.5436507936507936,
+          0.8083778966131907
+        ],
+        "test_macro_f1": 0.6894409937888198,
+        "test_confusion": {
+          "true_negative": 33,
+          "false_positive": 2,
+          "false_negative": 9,
+          "true_positive": 6
+        },
+        "rules": {
+          "count": 50,
+          "positives": 16,
+          "hallucination_probability": 0.32,
+          "feature": "token_entropy_top3",
+          "threshold": 0.21594763671358427,
+          "left_if": "value <= threshold",
+          "left": {
+            "count": 37,
+            "positives": 5,
+            "hallucination_probability": 0.13513513513513514
+          },
+          "right_if": "value > threshold",
+          "right": {
+            "count": 13,
+            "positives": 11,
+            "hallucination_probability": 0.8461538461538461
+          }
+        }
+      },
+      "depth2_tree": {
+        "calibration_auroc": 0.90625,
+        "calibration_macro_f1": 0.8300145701796988,
+        "threshold": 0.5701357466063348,
+        "test_auroc": 0.66,
+        "test_auroc_ci_95": [
+          0.49184149184149184,
+          0.8179824561403509
+        ],
+        "test_macro_f1": 0.6894409937888198,
+        "test_confusion": {
+          "true_negative": 33,
+          "false_positive": 2,
+          "false_negative": 9,
+          "true_positive": 6
+        },
+        "rules": {
+          "count": 50,
+          "positives": 16,
+          "hallucination_probability": 0.32,
+          "feature": "token_entropy_top3",
+          "threshold": 0.21594763671358427,
+          "left_if": "value <= threshold",
+          "left": {
+            "count": 37,
+            "positives": 5,
+            "hallucination_probability": 0.13513513513513514,
+            "feature": "answer_tokens",
+            "threshold": 12.5,
+            "left_if": "value <= threshold",
+            "left": {
+              "count": 20,
+              "positives": 0,
+              "hallucination_probability": 0.0
+            },
+            "right_if": "value > threshold",
+            "right": {
+              "count": 17,
+              "positives": 5,
+              "hallucination_probability": 0.29411764705882354
+            }
+          },
+          "right_if": "value > threshold",
+          "right": {
+            "count": 13,
+            "positives": 11,
+            "hallucination_probability": 0.8461538461538461
+          }
+        }
+      }
+    },
+    "base": {
+      "selected_scalar": {
+        "score_key": "token_entropy_mean",
+        "display_name": "Mean token entropy",
+        "direction": "higher score predicts an incorrect answer",
+        "calibration_auroc": 0.8342245989304813,
+        "calibration_macro_f1": 0.8095238095238095,
+        "threshold": 0.1331706497127622,
+        "test_auroc": 0.66553480475382,
+        "test_auroc_ci_95": [
+          0.49910873440285203,
+          0.8099838969404187
+        ],
+        "test_macro_f1": 0.6000000000000001,
+        "test_confusion": {
+          "true_negative": 30,
+          "false_positive": 1,
+          "false_negative": 14,
+          "true_positive": 5
+        }
+      },
+      "stump": {
+        "calibration_auroc": 0.7611408199643493,
+        "calibration_macro_f1": 0.7453310696095077,
+        "threshold": 0.37848932676518887,
+        "test_auroc": 0.6706281833616299,
+        "test_auroc_ci_95": [
+          0.5231729055258467,
+          0.8039049235993209
+        ],
+        "test_macro_f1": 0.6666666666666666,
+        "test_confusion": {
+          "true_negative": 22,
+          "false_positive": 9,
+          "false_negative": 7,
+          "true_positive": 12
+        },
+        "rules": {
+          "count": 50,
+          "positives": 17,
+          "hallucination_probability": 0.34,
+          "feature": "top3_token_surprise",
+          "threshold": 1.4503680666387926,
+          "left_if": "value <= threshold",
+          "left": {
+            "count": 29,
+            "positives": 4,
+            "hallucination_probability": 0.13793103448275862
+          },
+          "right_if": "value > threshold",
+          "right": {
+            "count": 21,
+            "positives": 13,
+            "hallucination_probability": 0.6190476190476191
+          }
+        }
+      },
+      "depth2_tree": {
+        "calibration_auroc": 0.8600713012477719,
+        "calibration_macro_f1": 0.7453310696095077,
+        "threshold": 0.39743589743589747,
+        "test_auroc": 0.7062818336162988,
+        "test_auroc_ci_95": [
+          0.553475935828877,
+          0.8428571428571429
+        ],
+        "test_macro_f1": 0.6666666666666666,
+        "test_confusion": {
+          "true_negative": 22,
+          "false_positive": 9,
+          "false_negative": 7,
+          "true_positive": 12
+        },
+        "rules": {
+          "count": 50,
+          "positives": 17,
+          "hallucination_probability": 0.34,
+          "feature": "top3_token_surprise",
+          "threshold": 1.4503680666387926,
+          "left_if": "value <= threshold",
+          "left": {
+            "count": 29,
+            "positives": 4,
+            "hallucination_probability": 0.13793103448275862,
+            "feature": "hidden_cosine_top3",
+            "threshold": 0.8765101333459219,
+            "left_if": "value <= threshold",
+            "left": {
+              "count": 12,
+              "positives": 4,
+              "hallucination_probability": 0.3333333333333333
+            },
+            "right_if": "value > threshold",
+            "right": {
+              "count": 17,
+              "positives": 0,
+              "hallucination_probability": 0.0
+            }
+          },
+          "right_if": "value > threshold",
+          "right": {
+            "count": 21,
+            "positives": 13,
+            "hallucination_probability": 0.6190476190476191,
+            "feature": "top3_token_surprise",
+            "threshold": 1.8574311958155436,
+            "left_if": "value <= threshold",
+            "left": {
+              "count": 13,
+              "positives": 6,
+              "hallucination_probability": 0.46153846153846156
+            },
+            "right_if": "value > threshold",
+            "right": {
+              "count": 8,
+              "positives": 7,
+              "hallucination_probability": 0.875
+            }
+          }
+        }
+      }
+    }
+  }
+}

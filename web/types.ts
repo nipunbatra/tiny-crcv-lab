@@ -85,6 +85,88 @@ export interface ScoreMetric {
   test_auroc_ci_95: [number, number];
   test_macro_f1: number;
   test_confusion: Record<string, number>;
+  calibration_pairwise_accuracy?: number;
+  test_pairwise_accuracy?: number;
+}
+
+export interface TreeRule {
+  count: number;
+  positives: number;
+  hallucination_probability: number;
+  feature?: FeatureKey;
+  threshold?: number;
+  left_if?: string;
+  left?: TreeRule;
+  right_if?: string;
+  right?: TreeRule;
+}
+
+export interface TreeScoreMetric {
+  calibration_auroc: number;
+  calibration_macro_f1: number;
+  threshold: number;
+  test_auroc: number;
+  test_auroc_ci_95: [number, number];
+  test_macro_f1: number;
+  test_confusion: Record<string, number>;
+  calibration_pairwise_accuracy?: number;
+  test_pairwise_accuracy?: number;
+  rules: TreeRule;
+}
+
+export interface HaluEvalPrediction {
+  pair_id: string;
+  source_index: number;
+  source_dataset: string;
+  split: 'calibration' | 'test';
+  knowledge: string;
+  question: string;
+  id: string;
+  candidate_kind: 'right' | 'hallucinated';
+  candidate_answer: string;
+  is_hallucination: 0 | 1;
+  token_ids: number[];
+  token_pieces: string[];
+  confidences: number[];
+  hidden_shifts: Array<number | null>;
+  token_margins: number[];
+  token_entropies: number[];
+  hidden_cosine_distances: Array<number | null>;
+  hidden_norms: number[];
+  features: Features;
+  elapsed_seconds: number;
+  tree_score: number;
+  tree_path: string[];
+}
+
+export interface HaluEvalMetrics {
+  scores: Record<FeatureKey, ScoreMetric>;
+  selected_scalar: ScoreMetric & { score_key: FeatureKey };
+  stump: TreeScoreMetric;
+  depth2_tree: TreeScoreMetric;
+  tree_features: FeatureKey[];
+  length_diagnostics: {
+    status: string;
+    calibration_pairs_hallucinated_longer: number;
+    test_pairs_hallucinated_longer: number;
+    selected_scalar_residual: {
+      status: string;
+      score_key: FeatureKey;
+      test_auroc: number;
+      test_auroc_ci_95: [number, number];
+      test_macro_f1: number;
+      test_pairwise_accuracy: number;
+    };
+  };
+}
+
+export interface ShallowTreeResults {
+  status: string;
+  models: Record<ModelKind, {
+    selected_scalar: ScoreMetric & { score_key: FeatureKey };
+    stump: TreeScoreMetric;
+    depth2_tree: TreeScoreMetric;
+  }>;
 }
 
 export interface BenchmarkMetrics {

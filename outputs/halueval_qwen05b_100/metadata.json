@@ -1,0 +1,14 @@
+{
+  "created_at_utc": "2026-07-18T09:37:34.316997+00:00",
+  "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+  "requested_revision": "main",
+  "resolved_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "device": "mps",
+  "layer": -1,
+  "window": 5,
+  "mode": "teacher_forced_grounded_candidate_scoring",
+  "data_sha256": "936091b66f7a55a8025d3cb122cb0eb9c021aa7c61fda668dbcbe99e5979a04b",
+  "protocol_sha256": "29a4bee6ff43d4a4dc621a364f8ab84485b01c7c5a3da48dcfc35a2e9eb5d1f4",
+  "python": "3.12.13",
+  "platform": "macOS-15.7.7-arm64-arm-64bit"
+}

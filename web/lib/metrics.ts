@@ -139,6 +139,6 @@ export function tokenCalculations(prediction: Prediction, window = WINDOW): Toke
   return valid;
 }
 
-export function parseJsonl(raw: string): Prediction[] {
-  return raw.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Prediction);
+export function parseJsonl<T = Prediction>(raw: string): T[] {
+  return raw.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as T);
 }

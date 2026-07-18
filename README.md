@@ -10,7 +10,9 @@ were useful. On the Instruct checkpoint, skipping the first token and averaging
 the three largest surprises reached 0.827 held-out AUROC; top-3 normalized token
 entropy reached 0.825; the earlier top-3 selected-token surprise reached 0.817;
 and CRCV reached 0.594. These are exploratory rankings on a reused 50-question
-test split—not a validated detector.
+test split—not a validated detector. A separately frozen 50-pair slice of the
+real [HaluEval QA benchmark](https://github.com/RUCAIBox/HaluEval) is now included
+as an external, teacher-forced candidate-discrimination check.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
 The default view explains the result in plain language; **Explore details**
@@ -93,6 +95,56 @@ surprise was more robust across these two checkpoints. Because the same
 50-question held-out set has now been inspected during iteration, all additions
 must be confirmed on fresh questions.
 
+## Detector-building protocol
+
+Yes: for a one-score detector, the clean process is to define the score first,
+fit its operational cutoff on calibration data, and report performance once on
+held-out data. This repository uses two related but distinct quantities:
+
+- **AUROC needs no cutoff.** It measures how often a randomly chosen wrong
+  answer receives a higher risk score than a randomly chosen correct answer.
+- **Macro-F1 and the confusion matrix need a cutoff.** The cutoff that maximizes
+  calibration macro-F1 is frozen, then applied unchanged to the test split.
+
+If several scores are candidates, selecting among them also consumes calibration
+data. The HaluEval experiment therefore chooses the scalar with the highest
+calibration AUROC and never reselects it using held-out AUROC. Repeatedly inventing
+features after viewing a test split turns that split into development data; a
+fresh test set is then required.
+
+A small decision tree is a reasonable multi-feature experiment because its
+rules remain inspectable. Here the tree is deliberately restricted to depth 2,
+at least 8 calibration candidates per leaf, and six predeclared inputs. It learns
+both the feature thresholds and the branch structure on calibration data only.
+That added flexibility did not reliably help: on saved free generations the
+depth-2 tree changed held-out AUROC from 0.825 to 0.660 for Instruct and from
+0.666 to 0.706 for Base. It therefore remains a diagnostic, not the default.
+
+## External HaluEval-QA slice
+
+The protocol, seeds, model, allowed tree features, and sample indices were
+committed before downloading the selected examples. The slice contains 50
+HaluEval QA pairs: 25 pairs for calibration and 25 pairs held out. Each question
+contributes its supplied knowledge, one right candidate, and one hallucinated
+candidate, giving 100 exact token traces. Whole pairs always stay in the same
+split.
+
+| Detector | Held-out AUROC | 95% CI | Macro-F1 | Pair accuracy |
+|---|---:|---:|---:|---:|
+| Calibration-selected scalar: skip-first top-3 surprise | **0.994** | 0.976–1.000 | 0.940 | 1.000 |
+| One-split stump | 0.900 | 0.821–0.975 | 0.899 | 0.900 |
+| Depth-2 tree | 0.968 | 0.913–0.998 | 0.899 | 0.980 |
+| Answer length control | 0.958 | 0.900–0.996 | 0.859 | 1.000 |
+| Selected scalar after log-length residualization (post-hoc) | 0.787 | 0.644–0.915 | 0.756 | 0.800 |
+
+The headline 0.994 is heavily confounded: the hallucinated candidate is longer
+in all 25 held-out pairs. The residualized analysis fits and removes a
+log-answer-length trend using calibration data, but it was designed after seeing
+the length pattern and is therefore only a warning. HaluEval also uses synthetic
+adversarial answers. This run tests whether Qwen assigns different token signals
+to supplied right and hallucinated candidates under grounding context; it does
+not test detection on Qwen's own free generation.
+
 ## Reproduce
 
 The default model is
@@ -123,6 +175,20 @@ winner-only notebook:
 ```bash
 uv run python scripts/search_simple_metrics.py
 ```
+
+Recreate the frozen external slice, score its exact candidates, and compare the
+shallow trees with the scalar baselines:
+
+```bash
+uv run python scripts/fetch_halueval_subset.py
+uv run python scripts/run_halueval_subset.py --overwrite
+uv run python scripts/evaluate_shallow_trees.py
+```
+
+The published files are in `outputs/halueval_qwen05b_100/`; the exact sampling
+contract is `experiments/halueval_qa_50_protocol.json`. The browser's paired
+candidate microscope exposes all 24 answer-level scores, every raw per-token
+input, every numerical substitution, and the exact tree path.
 
 To sanity-check standard Transformers.js generation with the same q4 ONNX model:
 
@@ -197,6 +263,8 @@ uv run python scripts/expose_onnx_hidden_state.py \
 - Only one small architecture, its Instruct/Base checkpoints, one layer, and
   greedy decoding are tested.
 - The held-out set has only 50 examples, so uncertainty will be wide.
+- The external HaluEval slice has only 25 held-out pairs and a severe answer-
+  length/style confound.
 - Alias matching can mislabel nuanced answers; inspect `predictions.jsonl`.
 - The result is useful even if CRCV performs at or below chance: that falsifies
   this tiny version and prevents premature detector claims.

@@ -14,15 +14,22 @@ import instructRaw from '../outputs/qwen05b_100/predictions.jsonl?raw';
 import baseRaw from '../outputs/qwen05b_base_100/predictions.jsonl?raw';
 import instructMetricsJson from '../outputs/qwen05b_100/metrics.json';
 import baseMetricsJson from '../outputs/qwen05b_base_100/metrics.json';
+import haluevalRaw from '../outputs/halueval_qwen05b_100/predictions.jsonl?raw';
+import haluevalMetricsJson from '../outputs/halueval_qwen05b_100/metrics.json';
+import shallowTreeJson from '../outputs/shallow_tree_results.json';
 import questionTokensJson from './data/question-tokens.json';
 import { parseJsonl, rollingSampleStd, tokenCalculations } from './lib/metrics';
 import type {
   BenchmarkMetrics,
   FeatureKey,
   Features,
+  HaluEvalMetrics,
+  HaluEvalPrediction,
   LiveToken,
   ModelKind,
   Prediction,
+  ShallowTreeResults,
+  TreeRule,
   WorkerToMain,
 } from './types';
 
@@ -34,6 +41,9 @@ const benchmarks: Record<ModelKind, BenchmarkMetrics> = {
   instruct: instructMetricsJson as unknown as BenchmarkMetrics,
   base: baseMetricsJson as unknown as BenchmarkMetrics,
 };
+const haluevalPredictions = parseJsonl<HaluEvalPrediction>(haluevalRaw);
+const haluevalMetrics = haluevalMetricsJson as unknown as HaluEvalMetrics;
+const shallowTrees = shallowTreeJson as unknown as ShallowTreeResults;
 const questionTokens = questionTokensJson as Record<string, Array<{ id: number; piece: string }>>;
 type AppView = 'overview' | 'explore' | 'live';
 
@@ -496,6 +506,175 @@ function Insight({ icon, label, value, text }: { icon: React.ReactNode; label: s
   return <div className="card p-5"><div className="mb-5 flex items-center gap-2 text-[#df4c2f]">{icon}<span className="eyebrow">{label}</span></div><p className="metric-number text-3xl font-semibold">{value}</p><p className="mt-3 text-sm leading-6 text-[#69716d]">{text}</p></div>;
 }
 
+function TreeDiagram({ node, edge }: { node: TreeRule; edge?: string }) {
+  const isLeaf = !node.feature || node.threshold === undefined;
+  return (
+    <div className="min-w-0 flex-1">
+      {edge && <p className="mono mb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-[#9e321e]">{edge}</p>}
+      <div className={`border hairline p-3 ${isLeaf ? 'bg-[#eeeae1]' : 'bg-white'}`}>
+        {isLeaf
+          ? <><p className="eyebrow">Leaf risk</p><p className="mono mt-1 text-xl font-semibold">{pct(node.hallucination_probability)}</p></>
+          : <><p className="eyebrow">Split</p><p className="mono mt-1 break-words text-xs font-semibold">{metricShort[node.feature!]} ≤ {format(node.threshold!, 4)}</p></>}
+        <p className="mt-2 text-[10px] text-[#69716d]">{node.positives}/{node.count} calibration candidates labelled hallucinated</p>
+      </div>
+      {!isLeaf && node.left && node.right && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <TreeDiagram node={node.left} edge="yes · go left" />
+          <TreeDiagram node={node.right} edge="no · go right" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CandidateAudit({ prediction, selectedMetric, onMetric }: { prediction: HaluEvalPrediction; selectedMetric: FeatureKey; onMetric: (key: FeatureKey) => void }) {
+  const example = workedExample(selectedMetric, prediction as unknown as Prediction);
+  const kindIsWrong = prediction.candidate_kind === 'hallucinated';
+  return (
+    <article className={`border-2 p-4 ${kindIsWrong ? 'border-[#df4c2f] bg-[#fff8f4]' : 'border-[#4d8a6e] bg-[#f7fbf8]'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className={`px-2 py-1 text-xs font-bold uppercase ${kindIsWrong ? 'bg-[#fbe9e2] text-[#9e321e]' : 'bg-[#e5f1eb] text-[#236349]'}`}>{kindIsWrong ? 'HaluEval hallucinated' : 'HaluEval right'}</span>
+        <span className="mono text-xs">tree risk {pct(prediction.tree_score)}</span>
+      </div>
+      <p className="mt-4 leading-7">{prediction.candidate_answer}</p>
+      <div className="mt-4 grid grid-cols-2 gap-px bg-[#d7d3c9]">
+        {(['skip_first_top3_surprise', 'surprise_shift_top3', 'token_ambiguity_top3', 'answer_tokens'] as FeatureKey[]).map((key) => (
+          <button key={key} onClick={() => onMetric(key)} className={`focus-ring bg-white p-3 text-left ${selectedMetric === key ? 'ring-2 ring-inset ring-[#df4c2f]' : ''}`}>
+            <p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? prediction.features[key] : format(prediction.features[key], 4)}</p>
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 bg-white p-3">
+        <p className="eyebrow">{metricShort[selectedMetric]} · exact substitution</p>
+        <p className="mono mt-2 break-words text-[11px] leading-5 text-[#9e321e]">{metricDefinitions[selectedMetric].formula}</p>
+        <p className="mono mt-2 break-words text-[11px] leading-5">{example.inputs}</p>
+        <p className="mono mt-2 break-words text-[11px] font-semibold leading-5">{example.arithmetic}</p>
+      </div>
+      <details className="mt-3 border hairline bg-white p-3">
+        <summary className="focus-ring cursor-pointer text-xs font-semibold">All 24 scores and all raw token inputs</summary>
+        <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-3">
+          {metricKeys.map((key) => <button onClick={() => onMetric(key)} key={key} className="focus-ring bg-[#f4f1ea] p-2 text-left"><span className="block text-[9px] text-[#69716d]">{metricShort[key]}</span><strong className="mono text-[11px]">{key === 'answer_tokens' ? prediction.features[key] : format(prediction.features[key], 5)}</strong></button>)}
+        </div>
+        <div className="mt-3 overflow-x-auto border hairline">
+          <table className="w-full min-w-[760px] text-left text-[10px]">
+            <thead className="bg-[#eeeae1] text-[#69716d]"><tr><th className="p-2">t</th><th className="p-2">token</th><th className="p-2">confidence</th><th className="p-2">margin</th><th className="p-2">entropy</th><th className="p-2">hidden shift</th><th className="p-2">cosine change</th><th className="p-2">hidden RMS</th></tr></thead>
+            <tbody>{prediction.token_pieces.map((token, index) => <tr className="border-t hairline" key={`${prediction.id}-raw-${index}`}><td className="mono p-2">{index + 1}</td><td className="mono p-2">{JSON.stringify(token)}</td><td className="mono p-2">{format(prediction.confidences[index], 5)}</td><td className="mono p-2">{format(prediction.token_margins[index], 5)}</td><td className="mono p-2">{format(prediction.token_entropies[index], 5)}</td><td className="mono p-2">{prediction.hidden_shifts[index] === null ? '—' : format(prediction.hidden_shifts[index]!, 5)}</td><td className="mono p-2">{prediction.hidden_cosine_distances[index] === null ? '—' : format(prediction.hidden_cosine_distances[index]!, 5)}</td><td className="mono p-2">{format(prediction.hidden_norms[index], 5)}</td></tr>)}</tbody>
+          </table>
+        </div>
+        <div className="mt-3 bg-[#f4f1ea] p-3"><p className="eyebrow">Tree path</p>{prediction.tree_path.map((step, index) => <p className="mono mt-1 text-[10px]" key={`${prediction.id}-path-${index}`}>{index + 1}. {step}</p>)}</div>
+      </details>
+    </article>
+  );
+}
+
+function ExternalBenchmark() {
+  const pairs = useMemo(() => {
+    const grouped = new Map<string, HaluEvalPrediction[]>();
+    haluevalPredictions.forEach((prediction) => grouped.set(prediction.pair_id, [...(grouped.get(prediction.pair_id) ?? []), prediction]));
+    return [...grouped.entries()].map(([id, candidates]) => ({ id, candidates, split: candidates[0].split, sourceIndex: candidates[0].source_index }));
+  }, []);
+  const defaultPair = pairs.find((pair) => pair.split === 'test') ?? pairs[0];
+  const [selectedPairId, setSelectedPairId] = useState(defaultPair.id);
+  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>(haluevalMetrics.selected_scalar.score_key);
+  const pair = pairs.find((item) => item.id === selectedPairId) ?? defaultPair;
+  const exemplar = pair.candidates[0];
+  const results = [
+    { name: 'Cal.-selected scalar', metric: haluevalMetrics.selected_scalar, note: metricShort[haluevalMetrics.selected_scalar.score_key] },
+    { name: 'One-split stump', metric: haluevalMetrics.stump, note: 'one learned condition' },
+    { name: 'Depth-2 tree', metric: haluevalMetrics.depth2_tree, note: 'at most two conditions' },
+    { name: 'Length baseline', metric: haluevalMetrics.scores.answer_tokens, note: 'control, not content' },
+  ];
+  const residual = haluevalMetrics.length_diagnostics.selected_scalar_residual;
+  const rankedScores = [...metricKeys].sort((left, right) => haluevalMetrics.scores[right].test_auroc - haluevalMetrics.scores[left].test_auroc);
+  return (
+    <section id="external-benchmark" className="border-y hairline bg-[#eae6dc] py-18">
+      <div className="shell">
+        <div className="grid gap-7 lg:grid-cols-[1.15fr_.85fr]">
+          <div>
+            <p className="eyebrow">External reality check</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">50 real HaluEval-QA pairs, frozen first.</h2>
+            <p className="mt-4 max-w-3xl leading-7 text-[#69716d]">Each pair supplies knowledge, a question, one right answer, and one intentionally hallucinated answer. We score the exact candidate tokens under the same Qwen model: 25 whole pairs calibrate thresholds and tree branches; the other 25 pairs are touched once for evaluation.</p>
+          </div>
+          <div className="card grid grid-cols-2 gap-px overflow-hidden bg-[#d7d3c9]">
+            <OverviewStep number="1" label="Freeze" value="features + split" note="Seed and model committed before rows were fetched." />
+            <OverviewStep number="2" label="Calibrate" value="25 answer pairs" note="Select scalar and every threshold using calibration only." />
+            <OverviewStep number="3" label="Test" value="25 unseen pairs" note="Rank wrong above right; also report F1 at the frozen cutoff." />
+            <OverviewStep number="4" label="Audit" value="100 traces" note="Every token input, score, tree path, and candidate is visible below." accent />
+          </div>
+        </div>
+
+        <div className="mt-7 overflow-x-auto card">
+          <table className="w-full min-w-[820px] text-left text-sm">
+            <thead className="bg-[#eeeae1] text-[11px] uppercase tracking-[.07em] text-[#69716d]"><tr><th className="p-4">Method</th><th className="p-4">Test AUROC</th><th className="p-4">95% CI</th><th className="p-4">Macro-F1</th><th className="p-4">Pair accuracy</th><th className="p-4">What was learned on calibration</th></tr></thead>
+            <tbody>{results.map(({ name, metric, note }) => <tr className="border-t hairline" key={name}><td className="p-4 font-semibold">{name}</td><td className="mono p-4 text-lg font-semibold">{format(metric.test_auroc)}</td><td className="mono p-4 text-[#69716d]">{format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</td><td className="mono p-4">{format(metric.test_macro_f1)}</td><td className="mono p-4">{format(metric.test_pairwise_accuracy ?? Number.NaN)}</td><td className="p-4 text-xs text-[#69716d]">{note}{name === 'Cal.-selected scalar' ? `; cutoff ${format(metric.threshold, 4)}` : ''}</td></tr>)}</tbody>
+          </table>
+        </div>
+
+        <div className="mt-5 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-5 text-sm leading-6 text-[#6f2d20]">
+          <p className="font-bold">The 0.994 is real arithmetic, but not clean evidence of factual understanding.</p>
+          <p className="mt-1">The hallucinated candidate is longer in {haluevalMetrics.length_diagnostics.test_pairs_hallucinated_longer}/25 held-out pairs, so even answer length reaches AUROC {format(haluevalMetrics.scores.answer_tokens.test_auroc)}. After removing a calibration-fitted log-length trend from the selected score, AUROC falls to {format(residual.test_auroc)} ({format(residual.test_auroc_ci_95[0])}–{format(residual.test_auroc_ci_95[1])}). That residual check is post-hoc, so it is a warning—not a new headline result.</p>
+        </div>
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          <div className="card p-5 md:p-7">
+            <p className="eyebrow">The learned depth-2 tree</p>
+            <h3 className="mt-2 text-xl font-semibold">Exact branches, no black box.</h3>
+            <p className="mt-3 text-sm leading-6 text-[#69716d]">The six allowed inputs were fixed in advance. Each leaf outputs its calibration-set hallucination fraction; that fraction is the tree score.</p>
+            <div className="mt-5"><TreeDiagram node={haluevalMetrics.depth2_tree.rules} /></div>
+          </div>
+          <div className="card p-5 md:p-7">
+            <p className="eyebrow">Does combining features help?</p>
+            <h3 className="mt-2 text-xl font-semibold">Not consistently in these small runs.</h3>
+            <div className="mt-5 space-y-4">{(['instruct', 'base'] as ModelKind[]).map((model) => {
+              const run = shallowTrees.models[model];
+              const delta = run.depth2_tree.test_auroc - run.selected_scalar.test_auroc;
+              return <div className="border hairline p-4" key={model}><div className="flex items-center justify-between gap-3"><strong className="capitalize">Qwen {model}</strong><span className={`mono text-sm font-semibold ${delta > 0 ? 'text-[#236349]' : 'text-[#9e321e]'}`}>{delta >= 0 ? '+' : ''}{format(delta)} tree − scalar</span></div><p className="mono mt-3 text-sm">scalar {format(run.selected_scalar.test_auroc)} → depth-2 tree {format(run.depth2_tree.test_auroc)}</p><p className="mt-2 text-xs text-[#69716d]">Tree 95% CI {format(run.depth2_tree.test_auroc_ci_95[0])}–{format(run.depth2_tree.test_auroc_ci_95[1])}</p></div>;
+            })}</div>
+            <p className="mt-4 text-sm leading-6 text-[#69716d]">So the tree stays an experiment. With only 50 calibration examples, its extra branches can fit quirks that do not repeat.</p>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <p className="eyebrow">Next cheap, interpretable signals</p>
+          <h3 className="mt-2 text-2xl font-semibold tracking-[-.03em]">Useful additions before any larger classifier.</h3>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-[#69716d]">These are a predeclared queue, not reported wins. Each is O(answer tokens), uses signals already produced by the forward pass, and can be printed token by token.</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {[
+              ['Low-confidence fraction', 'meanₜ 𝟙[cₜ < τ]', 'How much of the answer, rather than only its worst token, was shaky. Fit τ on calibration.'],
+              ['Longest surprise burst', 'max run length where −ln(cₜ) > τ', 'Distinguishes one uncertain token from a sustained uncertain phrase.'],
+              ['Surprise slope', 'OLS slope of −ln(cₜ) against token position t', 'Asks whether confidence deteriorates as the answer continues.'],
+              ['Hidden acceleration', 'top-3 mean of |rₜ − rₜ₋₁|', 'Measures abrupt changes in state movement, using the shifts already captured.'],
+              ['Confidence–shift correlation', 'corr(−ln(cₜ), rₜ)', 'Tests whether uncertainty and representation movement rise together.'],
+              ['Greedy disagreement', 'meanₜ 𝟙[candidate token ≠ argmaxᵥ pₜᵥ]', 'For supplied-candidate benchmarks only: how often the model preferred another token.'],
+            ].map(([name, formula, explanation]) => <div className="card p-4" key={name}><p className="font-semibold">{name}</p><p className="mono mt-3 bg-[#eeeae1] p-2 text-xs">{formula}</p><p className="mt-3 text-xs leading-5 text-[#69716d]">{explanation}</p></div>)}
+          </div>
+          <p className="mt-3 text-xs text-[#69716d]">A monotonic relabeling such as exp(entropy) may be easier to explain, but it cannot change AUROC; it is not a genuinely new ranking signal.</p>
+        </div>
+
+        <div className="card mt-8 overflow-hidden">
+          <div className="flex flex-wrap items-end justify-between gap-4 border-b hairline bg-[#eeeae1] p-4 md:p-6">
+            <div><p className="eyebrow">Paired candidate microscope</p><h3 className="mt-2 text-xl font-semibold">Same knowledge and question; compare every computed input.</h3></div>
+            <div className="flex flex-wrap gap-2">
+              <label className="text-xs font-semibold text-[#69716d]">Pair<select className="focus-ring ml-2 border hairline bg-white px-3 py-2 text-[#18211d]" value={selectedPairId} onChange={(event) => setSelectedPairId(event.target.value)}>{pairs.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.split}</option>)}</select></label>
+              <label className="text-xs font-semibold text-[#69716d]">Metric<select className="focus-ring ml-2 border hairline bg-white px-3 py-2 text-[#18211d]" value={selectedMetric} onChange={(event) => setSelectedMetric(event.target.value as FeatureKey)}>{metricKeys.map((key) => <option key={key} value={key}>{metricShort[key]}</option>)}</select></label>
+            </div>
+          </div>
+          <div className="p-4 md:p-6">
+            <div className="grid gap-4 lg:grid-cols-[.75fr_1.25fr]"><div><p className="eyebrow">Question · source row {exemplar.source_index}</p><p className="mt-2 text-lg font-semibold">{exemplar.question}</p></div><div><p className="eyebrow">Supplied knowledge</p><p className="mt-2 text-sm leading-6 text-[#505955]">{exemplar.knowledge}</p></div></div>
+            <div className="mt-6 grid gap-4 xl:grid-cols-2">{[...pair.candidates].sort((left, right) => left.is_hallucination - right.is_hallucination).map((candidate) => <CandidateAudit key={candidate.id} prediction={candidate} selectedMetric={selectedMetric} onMetric={setSelectedMetric} />)}</div>
+          </div>
+        </div>
+
+        <details className="card mt-5 p-4 md:p-6">
+          <summary className="focus-ring cursor-pointer font-semibold">Open the complete 24-score HaluEval leaderboard</summary>
+          <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="text-[11px] uppercase tracking-[.07em] text-[#69716d]"><tr><th className="p-3">Rank</th><th className="p-3">Score</th><th className="p-3">Calibration AUROC</th><th className="p-3">Test AUROC</th><th className="p-3">Pair accuracy</th></tr></thead><tbody>{rankedScores.map((key, index) => { const metric = haluevalMetrics.scores[key]; return <tr key={key} className="border-t hairline"><td className="mono p-3">#{index + 1}</td><td className="p-3 font-semibold">{metricShort[key]}{key === haluevalMetrics.selected_scalar.score_key && <span className="ml-2 bg-[#e5f1eb] px-2 py-1 text-[9px] uppercase text-[#236349]">selected on calibration</span>}</td><td className="mono p-3">{format(metric.calibration_auroc)}</td><td className="mono p-3 font-semibold">{format(metric.test_auroc)}</td><td className="mono p-3">{format(metric.test_pairwise_accuracy ?? Number.NaN)}</td></tr>; })}</tbody></table></div>
+        </details>
+        <p className="mt-4 text-xs leading-5 text-[#69716d]">Source: HaluEval QA. This slice tests candidate discrimination under supplied knowledge, not whether the model’s own free-running answer is factual. The source answers are synthetic adversarial examples, and this 50-pair slice is deliberately small.</p>
+      </div>
+    </section>
+  );
+}
+
 function QuestionLab({ model }: { model: ModelKind }) {
   const data = predictions[model];
   const [selectedId, setSelectedId] = useState('q002');
@@ -810,7 +989,7 @@ export default function App() {
     <Header model={model} onModel={setModel} view={view} onView={changeView} />
     <main id="main-content">
       {view === 'overview' && <><Hero model={model} onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><BeginnerOverview model={model} onExplore={() => changeView('explore')} /></>}
-      {view === 'explore' && <><Results model={model} /><QuestionLab model={model} /><MethodNote /></>}
+      {view === 'explore' && <><Results model={model} /><ExternalBenchmark /><QuestionLab model={model} /><MethodNote /></>}
       {view === 'live' && <><LiveLab model={model} /><MethodNote /></>}
     </main>
     <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>100 questions · 50 calibration / 50 held out · greedy decoding</span></div></footer>
