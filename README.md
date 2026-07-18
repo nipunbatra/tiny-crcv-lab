@@ -5,25 +5,25 @@ An inspectable experiment asking one question:
 > On short factual answers from a 0.49B open-weight model, does instability in
 > confidence × hidden-state movement predict which answers are wrong?
 
-**Result:** CRCV was not convincing, but several tiny distribution-based scores
-were useful. On the Instruct checkpoint, skipping the first token and averaging
-the three largest surprises reached 0.827 held-out AUROC; top-3 normalized token
-entropy reached 0.825; the earlier top-3 selected-token surprise reached 0.817;
-and CRCV reached 0.594. These are exploratory rankings on a reused 50-question
-test split—not a validated detector. A separately frozen 50-pair slice of the
-real [HaluEval QA benchmark](https://github.com/RUCAIBox/HaluEval) is now included
-as an external, teacher-forced candidate-discrimination check.
+**Result:** keep the cheap baseline. On a frozen follow-up with 600 fresh public
+questions, top-3 selected-token surprise reached 0.656 held-out AUROC for Qwen
+0.5B Instruct and 0.599 for Base. A P(False) self-check, a calibration-trained
+896→1 hidden-state probe, and three-answer semantic disagreement did not reliably
+improve it. CRCV and the earlier 24-score sweep remain below as exploratory work,
+not validated detector claims.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
-The default view explains the result in plain language; **Evidence** compares all
-24 scalar methods side by side on the Instruct run, Base stress check, and
-HaluEval slice, then exposes each formula, confidence interval, and worked
-example. It also contains all 100 saved generations for each model; **Try it**
-performs inference inside the browser and exposes every raw per-token input.
+The default view explains the result in plain language; **Evidence** first
+compares all five fresh methods on Instruct, Base, NQ-Open, TriviaQA, and
+TruthfulQA. It can reconstruct all five scores for any of the 600 questions from
+raw saved inputs. The earlier 24-score sweep and HaluEval slice are available in
+one collapsed section. **Try it** performs inference inside the browser and
+exposes every raw per-token input.
 
-This is a research smoke test, not a production detector. It uses 100 fixed
-questions, calibrates score thresholds on 50, and reports results once on 50
-held-out questions. Every answer and token-level signal is saved for audit.
+This is a research prototype, not a production detector. The fresh comparison
+uses 300 questions for thresholds/probe fitting and reports results on 300 held
+out questions. Every answer, self-check probability, stochastic sample, pair
+judgment, probe contribution, and token-level signal is saved for audit.
 
 The same audit is available as a fully static browser app. It runs on GitHub
 Pages, uses Transformers.js with WebGPU (or WASM), and sends no prompt or model
@@ -37,7 +37,8 @@ npm run test:web
 npm run dev
 ```
 
-The saved 100-question results load immediately. The **Try it** panel downloads
+The summary results load immediately; the larger fresh trace files load only
+when the per-question inspector opens. The **Try it** panel downloads
 a roughly 750 MB quantized public ONNX model on first use. WebGPU and WASM now
 deliberately use the same q4 graph; the earlier automatic q4f16 switch could
 change greedy tokens on some GPU adapters. The page exposes Auto, WebGPU, and
@@ -73,10 +74,12 @@ CRCV forms `s_t = c_t * r_t` and takes the sample standard deviation of `s_t`
 inside complete trailing five-step windows. The browser shows the inputs,
 formula, numerical substitution, and result for all 24 evaluated summaries.
 
-The model is asked to place its short answer inside a fixed, content-neutral
-sentence frame. This creates enough generation steps for a window without
-inviting extra factual claims. The primary answer score is the mean of those
-windowed standard deviations.
+The Instruct model receives a direct “short answer, no explanation” chat prompt;
+the Base checkpoint receives `Question: ...\nAnswer:`. The original bracketed
+sentence frame was removed after a runtime feasibility trace showed that this
+tiny model copied the placeholder. That repair happened before either complete
+run, probe fitting, or aggregate metric calculation and is explicitly recorded
+as a protocol amendment.
 Higher scores are declared more likely to be wrong before looking at test data.
 Confidence variability, hidden-shift variability, token surprise, and answer
 length are evaluated as baselines. Correctness is an intentionally transparent
@@ -97,6 +100,35 @@ useful warning: full-distribution entropy is intuitive, but selected-token
 surprise was more robust across these two checkpoints. Because the same
 50-question held-out set has now been inspected during iteration, all additions
 must be confirmed on fresh questions.
+
+## Fresh 600-question comparison
+
+The sampling indices, calibration/test split, models, generation settings,
+methods, probe optimizer, thresholds, metrics, and improvement rule were frozen
+in `experiments/fresh_qa_600_protocol.json`. Each model answered 200 NQ-Open,
+200 TriviaQA, and 200 TruthfulQA questions. Within each dataset, 100 questions
+were calibration and 100 were held out.
+
+| Method | Instruct AUROC (95% CI) | Base AUROC (95% CI) | Mean extra local cost |
+|---|---:|---:|---:|
+| Top-3 token surprise | **0.656 (0.558–0.743)** | 0.599 (0.494–0.703) | none |
+| P(False) self-check | 0.603 (0.508–0.696) | **0.628 (0.523–0.728)** | 0.130 / 0.113 s |
+| Mean-hidden linear probe | 0.549 (0.453–0.641) | 0.545 (0.433–0.655) | one dot product after fitting |
+| Three-answer disagreement | 0.621 (0.515–0.721) | 0.595 (0.491–0.691) | 1.901 / 2.854 s |
+| Answer length control | 0.540 (0.432–0.644) | 0.528 (0.430–0.632) | none |
+
+No added method's paired bootstrap AUROC-difference interval was entirely above
+zero versus frozen top-3 surprise. P(False) was descriptively best on Base, but
+its +0.029 difference had a 95% interval from -0.083 to +0.150. The practical v0
+therefore remains top-3 surprise, with answer length always reported and
+P(False) optional as a second diagnostic. The probe and three-sample method add
+complexity or latency without established benefit here.
+
+The label is intentionally mechanical: a normalized accepted answer must occur
+as a whole phrase. This is especially strict for TruthfulQA's sentence-length
+answers. Base had no alias matches in the 100-question held-out TruthfulQA slice,
+so that slice's AUROC is undefined; the site displays “—” and exposes every row.
+These results evaluate strict answer matching, not human-adjudicated factuality.
 
 ## Detector-building protocol
 
@@ -188,6 +220,21 @@ uv run python scripts/run_halueval_subset.py --overwrite
 uv run python scripts/evaluate_shallow_trees.py
 ```
 
+Recreate the frozen fresh sample and run the three stronger small baselines:
+
+```bash
+uv run python scripts/fetch_fresh_qa.py --overwrite
+HF_HUB_OFFLINE=1 uv run python scripts/run_sota_comparison.py \
+  --model-key instruct --overwrite
+HF_HUB_OFFLINE=1 uv run python scripts/run_sota_comparison.py \
+  --model-key base --overwrite
+```
+
+Omit `HF_HUB_OFFLINE=1` on the first run so Hugging Face can download the model.
+The fresh outputs include `hidden_probe.npz`, which preserves all 600 mean hidden
+states plus calibration statistics and weights; the browser shows the largest
+per-question contributions and the exact residual from the other dimensions.
+
 The published files are in `outputs/halueval_qwen05b_100/`; the exact sampling
 contract is `experiments/halueval_qa_50_protocol.json`. The browser's paired
 candidate microscope exposes all 24 answer-level scores, every raw per-token
@@ -264,8 +311,9 @@ uv run python scripts/expose_onnx_hidden_state.py \
 
 - A wrong short answer is used as an operational hallucination label.
 - Only one small architecture, its Instruct/Base checkpoints, one layer, and
-  greedy decoding are tested.
-- The held-out set has only 50 examples, so uncertainty will be wide.
+  greedy primary decoding are tested.
+- The fresh held-out set has 300 examples per checkpoint, but very few strict
+  alias matches, so class imbalance and wide intervals remain important.
 - The external HaluEval slice has only 25 held-out pairs and a severe answer-
   length/style confound.
 - Alias matching can mislabel nuanced answers; inspect `predictions.jsonl`.

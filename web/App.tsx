@@ -16,13 +16,17 @@ import instructMetricsJson from '../outputs/qwen05b_100/metrics.json';
 import baseMetricsJson from '../outputs/qwen05b_base_100/metrics.json';
 import haluevalRaw from '../outputs/halueval_qwen05b_100/predictions.jsonl?raw';
 import haluevalMetricsJson from '../outputs/halueval_qwen05b_100/metrics.json';
+import freshInstructMetricsJson from '../outputs/fresh_qa_qwen05b_instruct/metrics.json';
+import freshBaseMetricsJson from '../outputs/fresh_qa_qwen05b_base/metrics.json';
 import shallowTreeJson from '../outputs/shallow_tree_results.json';
 import questionTokensJson from './data/question-tokens.json';
+import { FreshBenchmark, FreshSummary } from './FreshEvidence';
 import { parseJsonl, rollingSampleStd, tokenCalculations } from './lib/metrics';
 import type {
   BenchmarkMetrics,
   FeatureKey,
   Features,
+  FreshComparisonMetrics,
   HaluEvalMetrics,
   HaluEvalPrediction,
   LiveToken,
@@ -44,6 +48,10 @@ const benchmarks: Record<ModelKind, BenchmarkMetrics> = {
 const haluevalPredictions = parseJsonl<HaluEvalPrediction>(haluevalRaw);
 const haluevalMetrics = haluevalMetricsJson as unknown as HaluEvalMetrics;
 const shallowTrees = shallowTreeJson as unknown as ShallowTreeResults;
+const freshMetrics: Record<ModelKind, FreshComparisonMetrics> = {
+  instruct: freshInstructMetricsJson as unknown as FreshComparisonMetrics,
+  base: freshBaseMetricsJson as unknown as FreshComparisonMetrics,
+};
 const questionTokens = questionTokensJson as Record<string, Array<{ id: number; piece: string }>>;
 type AppView = 'overview' | 'explore' | 'live';
 
@@ -300,7 +308,7 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
             </button>
           ))}
         </nav>
-        {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">Two datasets · two model variants · one recommendation</span> : <ModelToggle value={model} onChange={onModel} />}
+        {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">600 fresh questions · two checkpoints · one cautious recommendation</span> : <ModelToggle value={model} onChange={onModel} />}
       </div>
     </header>
   );
@@ -312,9 +320,9 @@ function Hero({ onExplore, onRun }: { onExplore: () => void; onRun: () => void }
       <div className="shell grid gap-10 py-14 lg:grid-cols-[1.08fr_.92fr] lg:py-20">
         <div className="max-w-3xl">
           <p className="eyebrow mb-5">Final recommendation</p>
-          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Use uncertainty as a warning, not a verdict.</h1>
+          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Keep the cheap baseline.</h1>
           <p className="mt-7 max-w-2xl text-lg leading-8 text-[#505955]">
-            Start with one cheap score—top-3 token surprise—to flag answers for review. Calibrate its cutoff on your own examples. Do not call it a standalone hallucination detector yet.
+            On 600 fresh public questions, neither self-judgment, a hidden-state probe, nor three-answer disagreement reliably beat top-3 token surprise. Use that score only to rank answers for review—not to declare facts false.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <button onClick={onRun} className="focus-ring inline-flex items-center gap-2 bg-[#df4c2f] px-5 py-3 font-semibold text-white">Try one question <Cpu size={18} /></button>
@@ -322,15 +330,19 @@ function Hero({ onExplore, onRun }: { onExplore: () => void; onRun: () => void }
           </div>
         </div>
         <div className="card self-end p-6 lg:p-8">
-          <p className="eyebrow">Recommended v0</p>
+          <p className="eyebrow">Fresh-test recommendation</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">Top-3 token surprise</h2>
           <p className="mono mt-4 bg-[#18211d] p-4 text-sm text-white">mean(top 3 of −ln p(chosen token))</p>
-          <div className="mt-6 space-y-4 border-t hairline pt-5 text-sm leading-6">
-            <p><strong>Use it for:</strong> ranking answers for review or triggering abstention.</p>
-            <p><strong>Add:</strong> top-3 entropy as a secondary diagnostic and answer length as a confound check.</p>
-            <p><strong>Do not add yet:</strong> the shallow tree or CRCV hidden-state score; neither improved consistently.</p>
+          <div className="mt-6 grid grid-cols-2 gap-px bg-[#d7d3c9]">
+            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">Instruct AUROC</p><p className="mono mt-1 text-2xl">0.656</p></div>
+            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">Base AUROC</p><p className="mono mt-1 text-2xl">0.599</p></div>
           </div>
-          <p className="mt-5 bg-[#fbe9e2] p-3 text-xs leading-5 text-[#6f2d20]">Evidence is still small and exploratory. A high score means “review this,” not “this is false.”</p>
+          <div className="mt-5 space-y-3 text-sm leading-6">
+            <p><strong>Always add:</strong> answer length as a confound check.</p>
+            <p><strong>Optional:</strong> P(False) as a second diagnostic; it was descriptively best on Base but did not reliably improve the baseline.</p>
+            <p><strong>Skip for v0:</strong> the supervised probe and three-sample score.</p>
+          </div>
+          <p className="mt-5 bg-[#fbe9e2] p-3 text-xs leading-5 text-[#6f2d20]">The labels are strict alias matches, not human factuality judgments. A high score means “review this,” not “this is false.”</p>
         </div>
       </div>
     </section>
@@ -988,6 +1000,13 @@ function MethodNote() {
   return <section className="border-t hairline bg-[#eae6dc] py-12"><div className="shell grid gap-8 md:grid-cols-2 lg:grid-cols-4"><div><p className="eyebrow">Token uncertainty</p><p className="mono mt-3 text-sm leading-7">c<sub>t</sub> = p(top token)<br />margin = p₁ − p₂<br />entropy = −Σp ln p / ln|V|</p></div><div><p className="eyebrow">State movement</p><p className="mono mt-3 text-sm leading-7">r<sub>t</sub> = ‖h<sub>t</sub> − h<sub>t−1</sub>‖₂ / (‖h<sub>t−1</sub>‖₂ + 10⁻⁸)</p></div><div><p className="eyebrow">Coupling</p><p className="mono mt-3 text-sm leading-7">s<sub>t</sub> = c<sub>t</sub> · r<sub>t</sub></p><p className="mt-1 text-sm text-[#69716d]">Confidence multiplied by state movement.</p></div><div><p className="eyebrow">CRCV</p><p className="mt-3 text-sm leading-7">Sample standard deviation of s over each complete trailing window, W = 5.</p></div></div></section>;
 }
 
+function EarlierExperiments({ model }: { model: ModelKind }) {
+  return <details className="border-y hairline bg-[#eae6dc]">
+    <summary className="focus-ring shell cursor-pointer list-none py-8"><p className="eyebrow">Earlier exploratory work</p><div className="mt-2 flex flex-wrap items-center justify-between gap-4"><h2 className="text-2xl font-semibold tracking-[-.035em]">Open the original 24-score search, HaluEval stress test, and token journey.</h2><span className="mono text-sm text-[#9e321e]">show / hide</span></div><p className="mt-3 max-w-3xl text-sm leading-6 text-[#69716d]">These reused smaller splits motivated the frozen fresh comparison above. They remain fully inspectable, but they are no longer the first evidence a new visitor sees.</p></summary>
+    <div className="border-t hairline bg-[#f4f1ea]"><Results model={model} /><ExternalBenchmark /><QuestionLab model={model} /><MethodNote /></div>
+  </details>;
+}
+
 export default function App() {
   const [model, setModel] = useState<ModelKind>('instruct');
   const [view, setView] = useState<AppView>(() => {
@@ -1004,10 +1023,10 @@ export default function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <Header model={model} onModel={setModel} view={view} onView={changeView} />
     <main id="main-content">
-      {view === 'overview' && <><Hero onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><BeginnerOverview onExplore={() => changeView('explore')} /></>}
-      {view === 'explore' && <><Results model={model} /><ExternalBenchmark /><QuestionLab model={model} /><MethodNote /></>}
+      {view === 'overview' && <><Hero onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><FreshSummary metrics={freshMetrics} onExplore={() => changeView('explore')} /></>}
+      {view === 'explore' && <><FreshBenchmark model={model} metrics={freshMetrics} /><EarlierExperiments model={model} /></>}
       {view === 'live' && <><LiveLab model={model} /><MethodNote /></>}
     </main>
-    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>100 generated answers + 50 HaluEval pairs · calibration separated from test</span></div></footer>
+    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>600 fresh questions × two checkpoints · calibration separated from test</span></div></footer>
   </>;
 }

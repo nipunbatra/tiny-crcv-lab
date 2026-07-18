@@ -1,0 +1,30 @@
+{
+  "created_at_utc": "2026-07-18T17:42:39.282608+00:00",
+  "protocol": "experiments/fresh_qa_600_protocol.json",
+  "protocol_sha256": "daf00f79a2341d35e1694092f808037f85c27957df5c86941a1a0aac843599a9",
+  "data": "data/fresh_qa_600.jsonl",
+  "data_sha256": "dcc4f8648875543edb6509cc332a8b6981a248ad55058983225e08e4b4dd8efa",
+  "model_key": "base",
+  "model_id": "Qwen/Qwen2.5-0.5B",
+  "requested_revision": "main",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "prompt_style": "base",
+  "device": "cpu",
+  "window": 5,
+  "generation": {
+    "primary_decoding": "greedy with no repetition penalty",
+    "instruct_prompt": "System: Answer factual questions directly. If uncertain, give your best answer. Keep the response brief. User: {question} Give only the short answer, with no explanation.",
+    "base_prompt": "Question: {question}\\nAnswer:",
+    "max_new_tokens": 24,
+    "stochastic_samples": 3,
+    "sampling_temperature": 1.0,
+    "sampling_top_k": 50,
+    "sampling_top_p": 0.95,
+    "sampling_seed": 2026072500
+  },
+  "rows": 600,
+  "python": "3.12.13",
+  "platform": "macOS-15.7.7-arm64-arm-64bit",
+  "torch": "2.13.0",
+  "transformers": "4.57.6"
+}

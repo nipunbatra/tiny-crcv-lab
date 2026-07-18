@@ -4,7 +4,10 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "prepare:data": "node scripts/prepare_web_data.mjs",
+    "predev": "npm run prepare:data",
     "dev": "vite",
+    "prebuild": "npm run prepare:data",
     "build": "tsc -b && vite build",
     "test:web": "vitest run",
     "check:onnx": "node scripts/check_browser_generation.mjs",

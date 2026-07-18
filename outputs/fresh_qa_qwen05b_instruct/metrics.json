@@ -1,0 +1,614 @@
+{
+  "label_definition": "1 = greedy answer contains no normalized accepted answer alias",
+  "calibration_examples": 300,
+  "held_out_examples": 300,
+  "calibration_incorrect": 266,
+  "held_out_incorrect": 257,
+  "methods": {
+    "top3_token_surprise": {
+      "display_name": "Top-3 token surprise",
+      "formula": "mean(largest 3 values of -ln p(chosen greedy token))",
+      "direction": "higher means more likely incorrect",
+      "threshold": 0.5444717543876505,
+      "calibration": {
+        "examples": 300,
+        "incorrect": 266,
+        "auroc": 0.7320875718708536,
+        "macro_f1": 0.6534752912816393
+      },
+      "held_out": {
+        "examples": 300,
+        "incorrect": 257,
+        "correct": 43,
+        "auroc": 0.6558682472174464,
+        "auroc_ci_95": [
+          0.5575061080445208,
+          0.7434915021121917
+        ],
+        "average_precision": 0.9097385525320045,
+        "macro_f1": 0.5844235801138987,
+        "confusion": {
+          "true_negative": 13,
+          "false_positive": 30,
+          "false_negative": 33,
+          "true_positive": 224
+        },
+        "selective_accuracy": {
+          "0.9": 0.14814814814814814,
+          "0.8": 0.1625,
+          "0.7": 0.17142857142857143
+        }
+      },
+      "by_dataset": {
+        "nq_open": {
+          "examples": 100,
+          "incorrect": 84,
+          "correct": 16,
+          "auroc": 0.5944940476190477,
+          "auroc_ci_95": [
+            0.4463738508682329,
+            0.7477017364657814
+          ],
+          "average_precision": 0.8933282133682849,
+          "macro_f1": 0.5738636363636364,
+          "confusion": {
+            "true_negative": 3,
+            "false_positive": 13,
+            "false_negative": 5,
+            "true_positive": 79
+          },
+          "selective_accuracy": {
+            "0.9": 0.17777777777777778,
+            "0.8": 0.1875,
+            "0.7": 0.17142857142857143
+          }
+        },
+        "trivia_qa": {
+          "examples": 100,
+          "incorrect": 79,
+          "correct": 21,
+          "auroc": 0.6726943942133815,
+          "auroc_ci_95": [
+            0.5217673814165043,
+            0.8138666666666666
+          ],
+          "average_precision": 0.8579060815289884,
+          "macro_f1": 0.6186370419499254,
+          "confusion": {
+            "true_negative": 7,
+            "false_positive": 14,
+            "false_negative": 9,
+            "true_positive": 70
+          },
+          "selective_accuracy": {
+            "0.9": 0.2111111111111111,
+            "0.8": 0.225,
+            "0.7": 0.2571428571428571
+          }
+        },
+        "truthful_qa": {
+          "examples": 100,
+          "incorrect": 94,
+          "correct": 6,
+          "auroc": 0.7836879432624113,
+          "auroc_ci_95": [
+            0.6666666666666666,
+            0.8971631205673759
+          ],
+          "average_precision": 0.9849065135208329,
+          "macro_f1": 0.5431893687707641,
+          "confusion": {
+            "true_negative": 3,
+            "false_positive": 3,
+            "false_negative": 19,
+            "true_positive": 75
+          },
+          "selective_accuracy": {
+            "0.9": 0.06666666666666667,
+            "0.8": 0.075,
+            "0.7": 0.08571428571428572
+          }
+        }
+      },
+      "paired_vs_top3_token_surprise": null,
+      "incremental_runtime": {
+        "mean_seconds_per_question": 0.0,
+        "median_seconds_per_question": 0.0,
+        "total_seconds": 0.0
+      }
+    },
+    "p_true": {
+      "display_name": "P(False self-check)",
+      "formula": "p(No) / (p(Yes) + p(No)) under the fixed correctness prompt",
+      "direction": "higher means more likely incorrect",
+      "threshold": 0.006015061831046897,
+      "calibration": {
+        "examples": 300,
+        "incorrect": 266,
+        "auroc": 0.5891198584697037,
+        "macro_f1": 0.552660492858264
+      },
+      "held_out": {
+        "examples": 300,
+        "incorrect": 257,
+        "correct": 43,
+        "auroc": 0.6025699031761832,
+        "auroc_ci_95": [
+          0.507844222960502,
+          0.6955931589901366
+        ],
+        "average_precision": 0.8859646619592626,
+        "macro_f1": 0.5056702529805176,
+        "confusion": {
+          "true_negative": 3,
+          "false_positive": 40,
+          "false_negative": 11,
+          "true_positive": 246
+        },
+        "selective_accuracy": {
+          "0.9": 0.14444444444444443,
+          "0.8": 0.15,
+          "0.7": 0.1619047619047619
+        }
+      },
+      "by_dataset": {
+        "nq_open": {
+          "examples": 100,
+          "incorrect": 84,
+          "correct": 16,
+          "auroc": 0.6153273809523809,
+          "auroc_ci_95": [
+            0.4418604651162791,
+            0.7727272727272727
+          ],
+          "average_precision": 0.8858344810121721,
+          "macro_f1": 0.453551912568306,
+          "confusion": {
+            "true_negative": 0,
+            "false_positive": 16,
+            "false_negative": 1,
+            "true_positive": 83
+          },
+          "selective_accuracy": {
+            "0.9": 0.16666666666666666,
+            "0.8": 0.1625,
+            "0.7": 0.17142857142857143
+          }
+        },
+        "trivia_qa": {
+          "examples": 100,
+          "incorrect": 79,
+          "correct": 21,
+          "auroc": 0.7010247136829415,
+          "auroc_ci_95": [
+            0.5728,
+            0.8164335664335665
+          ],
+          "average_precision": 0.8969362466839033,
+          "macro_f1": 0.5579133510167993,
+          "confusion": {
+            "true_negative": 3,
+            "false_positive": 18,
+            "false_negative": 2,
+            "true_positive": 77
+          },
+          "selective_accuracy": {
+            "0.9": 0.2222222222222222,
+            "0.8": 0.25,
+            "0.7": 0.2857142857142857
+          }
+        },
+        "truthful_qa": {
+          "examples": 100,
+          "incorrect": 94,
+          "correct": 6,
+          "auroc": 0.3599290780141844,
+          "auroc_ci_95": [
+            0.047619047619047616,
+            0.7094736842105264
+          ],
+          "average_precision": 0.9009496667106893,
+          "macro_f1": 0.46236559139784944,
+          "confusion": {
+            "true_negative": 0,
+            "false_positive": 6,
+            "false_negative": 8,
+            "true_positive": 86
+          },
+          "selective_accuracy": {
+            "0.9": 0.03333333333333333,
+            "0.8": 0.0375,
+            "0.7": 0.04285714285714286
+          }
+        }
+      },
+      "paired_vs_top3_token_surprise": {
+        "auroc_difference": -0.05329834404126321,
+        "auroc_difference_ci_95": [
+          -0.17066428164891456,
+          0.06619666048237471
+        ],
+        "excludes_zero": false,
+        "reliably_improves": false
+      },
+      "incremental_runtime": {
+        "mean_seconds_per_question": 0.1296781695164585,
+        "median_seconds_per_question": 0.12895789556205273,
+        "total_seconds": 77.80690170987509
+      }
+    },
+    "hidden_logistic_probe": {
+      "display_name": "Mean-hidden linear probe",
+      "formula": "sigmoid(b + sum_j w_j × ((h_j - mean_j) / std_j))",
+      "direction": "higher means more likely incorrect",
+      "threshold": 0.43730774263128747,
+      "calibration": {
+        "examples": 300,
+        "incorrect": 266,
+        "auroc": 1.0,
+        "macro_f1": 1.0
+      },
+      "held_out": {
+        "examples": 300,
+        "incorrect": 257,
+        "correct": 43,
+        "auroc": 0.5486381322957199,
+        "auroc_ci_95": [
+          0.45348011363636365,
+          0.6413089225589226
+        ],
+        "average_precision": 0.8658543078905842,
+        "macro_f1": 0.5384615384615384,
+        "confusion": {
+          "true_negative": 8,
+          "false_positive": 35,
+          "false_negative": 29,
+          "true_positive": 228
+        },
+        "selective_accuracy": {
+          "0.9": 0.14074074074074075,
+          "0.8": 0.15416666666666667,
+          "0.7": 0.1619047619047619
+        }
+      },
+      "by_dataset": {
+        "nq_open": {
+          "examples": 100,
+          "incorrect": 84,
+          "correct": 16,
+          "auroc": 0.5729166666666666,
+          "auroc_ci_95": [
+            0.40176151761517614,
+            0.7445652173913043
+          ],
+          "average_precision": 0.8828296854689909,
+          "macro_f1": 0.6262458471760798,
+          "confusion": {
+            "true_negative": 5,
+            "false_positive": 11,
+            "false_negative": 7,
+            "true_positive": 77
+          },
+          "selective_accuracy": {
+            "0.9": 0.17777777777777778,
+            "0.8": 0.1875,
+            "0.7": 0.15714285714285714
+          }
+        },
+        "trivia_qa": {
+          "examples": 100,
+          "incorrect": 79,
+          "correct": 21,
+          "auroc": 0.487040385774563,
+          "auroc_ci_95": [
+            0.33879164313946925,
+            0.6309291747888239
+          ],
+          "average_precision": 0.77107594001524,
+          "macro_f1": 0.49186991869918695,
+          "confusion": {
+            "true_negative": 3,
+            "false_positive": 18,
+            "false_negative": 12,
+            "true_positive": 67
+          },
+          "selective_accuracy": {
+            "0.9": 0.18888888888888888,
+            "0.8": 0.2,
+            "0.7": 0.2
+          }
+        },
+        "truthful_qa": {
+          "examples": 100,
+          "incorrect": 94,
+          "correct": 6,
+          "auroc": 0.6471631205673759,
+          "auroc_ci_95": [
+            0.45017182130584193,
+            0.8418367346938775
+          ],
+          "average_precision": 0.9704886706326156,
+          "macro_f1": 0.45652173913043476,
+          "confusion": {
+            "true_negative": 0,
+            "false_positive": 6,
+            "false_negative": 10,
+            "true_positive": 84
+          },
+          "selective_accuracy": {
+            "0.9": 0.06666666666666667,
+            "0.8": 0.075,
+            "0.7": 0.08571428571428572
+          }
+        }
+      },
+      "paired_vs_top3_token_surprise": {
+        "auroc_difference": -0.10723011492172652,
+        "auroc_difference_ci_95": [
+          -0.22185724431818182,
+          0.013392453171658603
+        ],
+        "excludes_zero": false,
+        "reliably_improves": false
+      },
+      "incremental_runtime": {
+        "mean_seconds_per_question": 7.283833343535662e-05,
+        "median_seconds_per_question": 7.283833343535662e-05,
+        "total_seconds": 0.04370300006121397
+      }
+    },
+    "semantic_disagreement_3": {
+      "display_name": "Three-answer disagreement",
+      "formula": "mean of three pairwise normalized p(No) same-answer judgments",
+      "direction": "higher means more likely incorrect",
+      "threshold": 0.18670302957157686,
+      "calibration": {
+        "examples": 300,
+        "incorrect": 266,
+        "auroc": 0.6333480760725343,
+        "macro_f1": 0.5837187789084182
+      },
+      "held_out": {
+        "examples": 300,
+        "incorrect": 257,
+        "correct": 43,
+        "auroc": 0.6211202606098996,
+        "auroc_ci_95": [
+          0.51472,
+          0.7208714596949891
+        ],
+        "average_precision": 0.8911094881412666,
+        "macro_f1": 0.5935383011985409,
+        "confusion": {
+          "true_negative": 15,
+          "false_positive": 28,
+          "false_negative": 37,
+          "true_positive": 220
+        },
+        "selective_accuracy": {
+          "0.9": 0.14814814814814814,
+          "0.8": 0.14583333333333334,
+          "0.7": 0.15714285714285714
+        }
+      },
+      "by_dataset": {
+        "nq_open": {
+          "examples": 100,
+          "incorrect": 84,
+          "correct": 16,
+          "auroc": 0.6681547619047619,
+          "auroc_ci_95": [
+            0.49632975719932243,
+            0.8334514528703048
+          ],
+          "average_precision": 0.8898341420033061,
+          "macro_f1": 0.5738636363636364,
+          "confusion": {
+            "true_negative": 3,
+            "false_positive": 13,
+            "false_negative": 5,
+            "true_positive": 79
+          },
+          "selective_accuracy": {
+            "0.9": 0.15555555555555556,
+            "0.8": 0.1625,
+            "0.7": 0.18571428571428572
+          }
+        },
+        "trivia_qa": {
+          "examples": 100,
+          "incorrect": 79,
+          "correct": 21,
+          "auroc": 0.6377335744424352,
+          "auroc_ci_95": [
+            0.48402652200120555,
+            0.7814793901750423
+          ],
+          "average_precision": 0.8463017579093998,
+          "macro_f1": 0.6593097318915716,
+          "confusion": {
+            "true_negative": 10,
+            "false_positive": 11,
+            "false_negative": 12,
+            "true_positive": 67
+          },
+          "selective_accuracy": {
+            "0.9": 0.2111111111111111,
+            "0.8": 0.225,
+            "0.7": 0.24285714285714285
+          }
+        },
+        "truthful_qa": {
+          "examples": 100,
+          "incorrect": 94,
+          "correct": 6,
+          "auroc": 0.5460992907801419,
+          "auroc_ci_95": [
+            0.2193877551020408,
+            0.871578947368421
+          ],
+          "average_precision": 0.9446716713624548,
+          "macro_f1": 0.5016611295681063,
+          "confusion": {
+            "true_negative": 2,
+            "false_positive": 4,
+            "false_negative": 20,
+            "true_positive": 74
+          },
+          "selective_accuracy": {
+            "0.9": 0.06666666666666667,
+            "0.8": 0.05,
+            "0.7": 0.05714285714285714
+          }
+        }
+      },
+      "paired_vs_top3_token_surprise": {
+        "auroc_difference": -0.034747986607546855,
+        "auroc_difference_ci_95": [
+          -0.13650599648613554,
+          0.06307692307692303
+        ],
+        "excludes_zero": false,
+        "reliably_improves": false
+      },
+      "incremental_runtime": {
+        "mean_seconds_per_question": 1.9013435157140095,
+        "median_seconds_per_question": 1.760889271623455,
+        "total_seconds": 1140.8061094284058
+      }
+    },
+    "answer_tokens": {
+      "display_name": "Answer length (confound)",
+      "formula": "number of tokens in the greedy answer",
+      "direction": "higher means more likely incorrect",
+      "threshold": 2.5,
+      "calibration": {
+        "examples": 300,
+        "incorrect": 266,
+        "auroc": 0.6162649270234409,
+        "macro_f1": 0.560546875
+      },
+      "held_out": {
+        "examples": 300,
+        "incorrect": 257,
+        "correct": 43,
+        "auroc": 0.5399963804180617,
+        "auroc_ci_95": [
+          0.43187830687830686,
+          0.6437159593053129
+        ],
+        "average_precision": 0.8555960095275449,
+        "macro_f1": 0.5680000000000001,
+        "confusion": {
+          "true_negative": 14,
+          "false_positive": 29,
+          "false_negative": 43,
+          "true_positive": 214
+        },
+        "selective_accuracy": {
+          "0.9": 0.13703703703703704,
+          "0.8": 0.1375,
+          "0.7": 0.1523809523809524
+        }
+      },
+      "by_dataset": {
+        "nq_open": {
+          "examples": 100,
+          "incorrect": 84,
+          "correct": 16,
+          "auroc": 0.3716517857142857,
+          "auroc_ci_95": [
+            0.21553156146179403,
+            0.5533453887884268
+          ],
+          "average_precision": 0.7794220123917386,
+          "macro_f1": 0.5076000856347678,
+          "confusion": {
+            "true_negative": 2,
+            "false_positive": 14,
+            "false_negative": 9,
+            "true_positive": 75
+          },
+          "selective_accuracy": {
+            "0.9": 0.14444444444444443,
+            "0.8": 0.1125,
+            "0.7": 0.12857142857142856
+          }
+        },
+        "trivia_qa": {
+          "examples": 100,
+          "incorrect": 79,
+          "correct": 21,
+          "auroc": 0.6784207353827607,
+          "auroc_ci_95": [
+            0.5315625,
+            0.8040625
+          ],
+          "average_precision": 0.8644434294265947,
+          "macro_f1": 0.6194824961948249,
+          "confusion": {
+            "true_negative": 12,
+            "false_positive": 9,
+            "false_negative": 21,
+            "true_positive": 58
+          },
+          "selective_accuracy": {
+            "0.9": 0.2222222222222222,
+            "0.8": 0.25,
+            "0.7": 0.2571428571428571
+          }
+        },
+        "truthful_qa": {
+          "examples": 100,
+          "incorrect": 94,
+          "correct": 6,
+          "auroc": 0.34131205673758863,
+          "auroc_ci_95": [
+            0.14453125,
+            0.525709219858156
+          ],
+          "average_precision": 0.9276652401776151,
+          "macro_f1": 0.44751381215469616,
+          "confusion": {
+            "true_negative": 0,
+            "false_positive": 6,
+            "false_negative": 13,
+            "true_positive": 81
+          },
+          "selective_accuracy": {
+            "0.9": 0.06666666666666667,
+            "0.8": 0.05,
+            "0.7": 0.04285714285714286
+          }
+        }
+      },
+      "paired_vs_top3_token_surprise": {
+        "auroc_difference": -0.11587186679938466,
+        "auroc_difference_ci_95": [
+          -0.21749744074336558,
+          -0.015192307692307616
+        ],
+        "excludes_zero": true,
+        "reliably_improves": false
+      },
+      "incremental_runtime": {
+        "mean_seconds_per_question": 0.0,
+        "median_seconds_per_question": 0.0,
+        "total_seconds": 0.0
+      }
+    }
+  },
+  "probe_training": {
+    "fit_seconds": 0.13237470807507634,
+    "scoring_seconds_all_questions": 0.04370300006121397,
+    "calibration_only": true
+  },
+  "descriptive_best_non_confound": "top3_token_surprise",
+  "reliable_improvements_over_top3": [],
+  "interpretation_rule": "No method is called better unless its paired bootstrap AUROC-difference interval against frozen top-3 surprise excludes zero on the pooled held-out set. Dataset-slice consistency and cost remain mandatory context.",
+  "runtime": {
+    "mean_greedy_generation_seconds": 0.5041020712221507,
+    "total_greedy_generation_seconds": 302.4612427332904,
+    "answers_at_token_limit": 45
+  }
+}

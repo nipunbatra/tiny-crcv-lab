@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
+public/data/fresh_qa_qwen05b_*.jsonl
 *.tsbuildinfo
 work/
 outputs/*

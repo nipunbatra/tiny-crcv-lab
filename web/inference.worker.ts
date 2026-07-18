@@ -178,16 +178,16 @@ function eosIds(model: any, tokenizer: any): Set<number> {
 
 function promptInputs(tokenizer: any, model: ModelKind, question: string): any {
   if (model === 'base') {
-    return tokenizer(`Question: ${question}\nAnswer with one short factual sentence and no explanation:`);
+    return tokenizer(`Question: ${question}\nAnswer:`);
   }
   return tokenizer.apply_chat_template([
     {
       role: 'system',
-      content: 'Answer factual questions directly and state your best answer even if uncertain. Follow the requested sentence frame exactly and add no facts.',
+      content: 'Answer factual questions directly. If uncertain, give your best answer. Keep the response brief.',
     },
     {
       role: 'user',
-      content: `${question}\nReplace only the bracketed text in this frame: 'The requested answer is [short answer], stated as my best factual response.' Add no explanation or supporting detail.`,
+      content: `${question}\nGive only the short answer, with no explanation.`,
     },
   ], { add_generation_prompt: true, return_dict: true });
 }
