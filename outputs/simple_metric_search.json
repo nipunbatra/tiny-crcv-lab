@@ -1,0 +1,301 @@
+{
+  "protocol": {
+    "status": "exploratory; the original held-out split has been inspected in prior iterations",
+    "selection_rule": "rank candidates by Instruct calibration AUROC",
+    "constraints": "O(answer tokens), no extra model calls, no learned classifier",
+    "candidate_count": 18,
+    "runtime_seconds": 0.11551883304491639
+  },
+  "ranking": [
+    "top4_token_surprise",
+    "skip_first_top3_surprise",
+    "surprise_burst_3",
+    "top2_token_surprise",
+    "surprise_shift_top3",
+    "uncertainty_shift_top3",
+    "surprise_shift_variability",
+    "surprise_shift_max",
+    "uncertainty_shift_variability",
+    "surprise_shift_mean",
+    "uncertainty_shift_max",
+    "uncertainty_shift_mean",
+    "low_confidence_fraction_05",
+    "low_confidence_fraction_08",
+    "hidden_shift_max",
+    "confidence_shift_max",
+    "hidden_shift_mean",
+    "confidence_shift_mean"
+  ],
+  "candidates": {
+    "top2_token_surprise": {
+      "display_name": "Top-2 token surprise",
+      "formula": "mean(top 2 of \u2212ln(c\u209c))",
+      "input_points": "selected-token confidence",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.8051470588235294,
+          "test_auroc": 0.7980952380952381
+        },
+        "base": {
+          "calibration_auroc": 0.7771836007130125,
+          "test_auroc": 0.7130730050933786
+        }
+      }
+    },
+    "top4_token_surprise": {
+      "display_name": "Top-4 token surprise",
+      "formula": "mean(top 4 of \u2212ln(c\u209c))",
+      "input_points": "selected-token confidence",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.84375,
+          "test_auroc": 0.8152380952380952
+        },
+        "base": {
+          "calibration_auroc": 0.7789661319073083,
+          "test_auroc": 0.7011884550084889
+        }
+      }
+    },
+    "skip_first_top3_surprise": {
+      "display_name": "Top-3 surprise after first token",
+      "formula": "mean(top 3 of \u2212ln(c\u209c), t > 1)",
+      "input_points": "selected-token confidence and token position",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.8253676470588235,
+          "test_auroc": 0.8266666666666667
+        },
+        "base": {
+          "calibration_auroc": 0.786096256684492,
+          "test_auroc": 0.6926994906621392
+        }
+      }
+    },
+    "surprise_burst_3": {
+      "display_name": "Three-token surprise burst",
+      "formula": "max trailing-3 mean(\u2212ln(c\u209c))",
+      "input_points": "selected-token confidence and token position",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.8198529411764706,
+          "test_auroc": 0.7771428571428571
+        },
+        "base": {
+          "calibration_auroc": 0.7557932263814616,
+          "test_auroc": 0.6706281833616299
+        }
+      }
+    },
+    "low_confidence_fraction_05": {
+      "display_name": "Fraction below 50% confidence",
+      "formula": "mean(1[c\u209c < 0.5])",
+      "input_points": "selected-token confidence",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.6709558823529411,
+          "test_auroc": 0.7847619047619048
+        },
+        "base": {
+          "calibration_auroc": 0.8057040998217468,
+          "test_auroc": 0.6188455008488964
+        }
+      }
+    },
+    "low_confidence_fraction_08": {
+      "display_name": "Fraction below 80% confidence",
+      "formula": "mean(1[c\u209c < 0.8])",
+      "input_points": "selected-token confidence",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.6663602941176471,
+          "test_auroc": 0.6104761904761905
+        },
+        "base": {
+          "calibration_auroc": 0.7727272727272727,
+          "test_auroc": 0.6477079796264855
+        }
+      }
+    },
+    "surprise_shift_mean": {
+      "display_name": "Surprise \u00d7 shift mean",
+      "formula": "mean((\u2212ln(c\u209c))r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7352941176470589,
+          "test_auroc": 0.7866666666666666
+        },
+        "base": {
+          "calibration_auroc": 0.7896613190730838,
+          "test_auroc": 0.6112054329371817
+        }
+      }
+    },
+    "surprise_shift_max": {
+      "display_name": "Surprise \u00d7 shift maximum",
+      "formula": "max((\u2212ln(c\u209c))r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7610294117647058,
+          "test_auroc": 0.7485714285714286
+        },
+        "base": {
+          "calibration_auroc": 0.6987522281639929,
+          "test_auroc": 0.4838709677419355
+        }
+      }
+    },
+    "surprise_shift_top3": {
+      "display_name": "Top-3 surprise \u00d7 shift",
+      "formula": "mean(top 3 of (\u2212ln(c\u209c))r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7830882352941176,
+          "test_auroc": 0.8
+        },
+        "base": {
+          "calibration_auroc": 0.7575757575757576,
+          "test_auroc": 0.567062818336163
+        }
+      }
+    },
+    "surprise_shift_variability": {
+      "display_name": "Surprise \u00d7 shift variability",
+      "formula": "mean trailing-window sample-SD((\u2212ln(c\u209c))r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7647058823529411,
+          "test_auroc": 0.7942857142857143
+        },
+        "base": {
+          "calibration_auroc": 0.7272727272727273,
+          "test_auroc": 0.5466893039049237
+        }
+      }
+    },
+    "uncertainty_shift_mean": {
+      "display_name": "Uncertainty \u00d7 shift mean",
+      "formula": "mean((1\u2212c\u209c)r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.71875,
+          "test_auroc": 0.7466666666666667
+        },
+        "base": {
+          "calibration_auroc": 0.7950089126559715,
+          "test_auroc": 0.6027164685908319
+        }
+      }
+    },
+    "uncertainty_shift_max": {
+      "display_name": "Uncertainty \u00d7 shift maximum",
+      "formula": "max((1\u2212c\u209c)r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7334558823529411,
+          "test_auroc": 0.7276190476190476
+        },
+        "base": {
+          "calibration_auroc": 0.5953654188948306,
+          "test_auroc": 0.4380305602716469
+        }
+      }
+    },
+    "uncertainty_shift_top3": {
+      "display_name": "Top-3 uncertainty \u00d7 shift",
+      "formula": "mean(top 3 of (1\u2212c\u209c)r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7775735294117647,
+          "test_auroc": 0.7923809523809524
+        },
+        "base": {
+          "calibration_auroc": 0.6951871657754011,
+          "test_auroc": 0.49745331069609505
+        }
+      }
+    },
+    "uncertainty_shift_variability": {
+      "display_name": "Uncertainty \u00d7 shift variability",
+      "formula": "mean trailing-window sample-SD((1\u2212c\u209c)r\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.7444852941176471,
+          "test_auroc": 0.7676190476190476
+        },
+        "base": {
+          "calibration_auroc": 0.6631016042780749,
+          "test_auroc": 0.4855687606112054
+        }
+      }
+    },
+    "hidden_shift_mean": {
+      "display_name": "Hidden-shift mean",
+      "formula": "mean(r\u209c)",
+      "input_points": "normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.3400735294117647,
+          "test_auroc": 0.36
+        },
+        "base": {
+          "calibration_auroc": 0.24598930481283424,
+          "test_auroc": 0.31069609507640067
+        }
+      }
+    },
+    "hidden_shift_max": {
+      "display_name": "Hidden-shift maximum",
+      "formula": "max(r\u209c)",
+      "input_points": "normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.625,
+          "test_auroc": 0.5371428571428571
+        },
+        "base": {
+          "calibration_auroc": 0.3868092691622103,
+          "test_auroc": 0.3938879456706282
+        }
+      }
+    },
+    "confidence_shift_mean": {
+      "display_name": "Confidence \u00d7 shift mean",
+      "formula": "mean(c\u209cr\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.2610294117647059,
+          "test_auroc": 0.24952380952380954
+        },
+        "base": {
+          "calibration_auroc": 0.18716577540106952,
+          "test_auroc": 0.29541595925297115
+        }
+      }
+    },
+    "confidence_shift_max": {
+      "display_name": "Confidence \u00d7 shift maximum",
+      "formula": "max(c\u209cr\u209c)",
+      "input_points": "selected-token confidence and normalized hidden shift",
+      "models": {
+        "instruct": {
+          "calibration_auroc": 0.6102941176470589,
+          "test_auroc": 0.4228571428571429
+        },
+        "base": {
+          "calibration_auroc": 0.1925133689839572,
+          "test_auroc": 0.42614601018675724
+        }
+      }
+    }
+  }
+}

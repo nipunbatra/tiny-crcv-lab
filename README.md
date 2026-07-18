@@ -5,16 +5,18 @@ An inspectable experiment asking one question:
 > On short factual answers from a 0.49B open-weight model, does instability in
 > confidence × hidden-state movement predict which answers are wrong?
 
-**Result:** CRCV was not convincing, but a very small follow-up helped. Averaging
-the surprise of the three least-confident tokens reached 0.817 AUROC, versus
-0.777 for the previous-best confidence-variability score and 0.594 for CRCV.
-The paired improvement over 0.777 is uncertain, so this is a lead to retest—not
-a validated detector.
+**Result:** CRCV was not convincing, but several tiny distribution-based scores
+were useful. On the Instruct checkpoint, skipping the first token and averaging
+the three largest surprises reached 0.827 held-out AUROC; top-3 normalized token
+entropy reached 0.825; the earlier top-3 selected-token surprise reached 0.817;
+and CRCV reached 0.594. These are exploratory rankings on a reused 50-question
+test split—not a validated detector.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
 The default view explains the result in plain language; **Explore details**
-contains a ranked benchmark, a formula dictionary with real inputs, and all 100
-generations; **Run locally** performs inference inside the browser.
+contains a ranked 24-score benchmark, the exact arithmetic for every score on a
+real question, and all 100 generations; **Run locally** performs inference
+inside the browser and exposes every raw per-token input.
 
 This is a research smoke test, not a production detector. It uses 100 fixed
 questions, calibrates score thresholds on 50, and reports results once on 50
@@ -33,14 +35,19 @@ npm run dev
 ```
 
 The saved 100-question results load immediately. The **Run in browser** panel
-downloads a quantized public ONNX model on first use (about 483 MB with WebGPU
-or 750 MB with WASM) and caches it when the browser has enough quota.
+downloads a quantized public ONNX model on first use. WebGPU uses the 483 MB
+q4f16 graph when the adapter supports `shader-f16`; otherwise WebGPU and WASM
+use the compatible 750 MB q4 graph. The page exposes Auto, WebGPU, and WASM
+runtime controls and caches the patched graph when browser quota permits.
 
 The public ONNX exports normally expose only logits and KV-cache tensors. They
 still compute the final normalized hidden state immediately before `lm_head`.
 The app makes that existing 896-value tensor an additional graph output with a
-small in-browser protobuf edit, then computes the same CRCV definition as the
-Python code. This is not a KV-cache proxy and adds no neural-network layer.
+small in-browser protobuf edit. It generates with Transformers.js's standard
+deterministic path, then replays the exact selected tokens to extract signals.
+The run stops if replay selects a different token, and a repeated-trigram guard
+visibly invalidates degenerate output. This is not a KV-cache proxy and adds no
+neural-network layer.
 
 `npm run build` creates `dist/`. The included GitHub Actions workflow tests,
 builds, and deploys that directory to GitHub Pages; enable **Pages → GitHub
@@ -48,13 +55,18 @@ Actions** in the repository settings.
 
 ## Method in one minute
 
-For every greedily generated answer token `t`:
+For every greedily generated answer token `t`, the same forward pass records:
 
-1. Record the probability `c_t` assigned to the selected token.
-2. Record the final-layer state used to predict it.
-3. Compute normalized movement `r_t` from the preceding generation step.
-4. Form `s_t = c_t * r_t`.
-5. Compute the sample standard deviation of `s_t` in trailing five-step windows.
+1. selected-token probability `c_t`, top-two probability margin, and full-vocab
+   entropy normalized by `ln(vocabulary size)`;
+2. the 896-value final-layer state, its RMS norm, normalized L2 movement, and
+   cosine change from the preceding step;
+3. simple answer summaries such as means, maxima, top-3/top-4 averages, local
+   variability, and confidence × movement couplings.
+
+CRCV forms `s_t = c_t * r_t` and takes the sample standard deviation of `s_t`
+inside complete trailing five-step windows. The browser shows the inputs,
+formula, numerical substitution, and result for all 24 evaluated summaries.
 
 The model is asked to place its short answer inside a fixed, content-neutral
 sentence frame. This creates enough generation steps for a window without
@@ -65,16 +77,21 @@ Confidence variability, hidden-shift variability, token surprise, and answer
 length are evaluated as baselines. Correctness is an intentionally transparent
 lexical proxy: at least one normalized accepted answer must occur in the output.
 
-The follow-up adds three confidence-only summaries, with no learned classifier:
+The first follow-up added three confidence-only summaries, with no learned
+classifier:
 
 - top-3 token surprise: the mean of the three largest `-ln(c_t)` values;
 - worst-token surprise: the largest `-ln(c_t)` value;
 - surprise spread: sample standard deviation of all `-ln(c_t)` values.
 
-On the Instruct run, top-3 surprise had the strongest calibration AUROC of these
-three candidates, so it is the designated follow-up score. Because the same
-50-question held-out set has now been inspected during iteration, its result is
-exploratory and must be confirmed on fresh questions.
+The next bounded sweep added top-4/skip-first variants plus equally cheap margin,
+normalized-entropy, cosine-change, hidden-norm, and uncertainty × movement
+summaries. Top-3 entropy was 0.008 AUROC above top-3 surprise on Instruct, with a
+paired 95% interval of -0.056 to 0.076; on Base it was 0.095 lower. That is a
+useful warning: full-distribution entropy is intuitive, but selected-token
+surprise was more robust across these two checkpoints. Because the same
+50-question held-out set has now been inspected during iteration, all additions
+must be confirmed on fresh questions.
 
 ## Reproduce
 
@@ -99,6 +116,20 @@ uv run python scripts/rescore_saved.py \
   outputs/qwen05b_100 outputs/qwen05b_base_100
 ```
 
+The bounded 18-formula search over the original saved confidence/shift traces is
+also reproducible. It writes every candidate and split result—there is no hidden
+winner-only notebook:
+
+```bash
+uv run python scripts/search_simple_metrics.py
+```
+
+To sanity-check standard Transformers.js generation with the same q4 ONNX model:
+
+```bash
+npm run check:onnx
+```
+
 For a quick end-to-end check before the full benchmark:
 
 ```bash
@@ -107,8 +138,8 @@ uv run tiny-crcv --limit 10 --output-dir outputs/smoke_10 --overwrite
 
 Outputs:
 
-- `predictions.jsonl`: raw generations, labels, token probabilities, hidden
-  shifts, and all answer-level scores.
+- `predictions.jsonl`: raw generations, labels, token probabilities, margins,
+  normalized entropies, hidden-state signals, and all answer-level scores.
 - `metrics.json`: thresholds, AUROC with bootstrap intervals, macro-F1, and
   confusion matrices.
 - `report.md`: a short human-readable result and limitations.
@@ -122,20 +153,21 @@ On the 50 held-out questions, 15 answers were labeled wrong and 35 correct.
 
 | Score | Held-out AUROC | Bootstrap 95% CI |
 |---|---:|---:|
-| Top-3 token surprise (follow-up) | **0.817** | **0.684–0.931** |
+| Skip-first top-3 surprise (exploratory) | **0.827** | **0.686–0.939** |
+| Top-3 normalized entropy (exploratory) | **0.825** | **0.699–0.929** |
+| Top-3 token surprise (follow-up) | 0.817 | 0.684–0.931 |
+| Surprise × hidden shift, top-3 | 0.800 | 0.653–0.915 |
+| Top-two ambiguity, top-3 | 0.779 | 0.629–0.902 |
 | Token-surprise spread | 0.771 | 0.618–0.904 |
-| Worst-token surprise | 0.752 | 0.593–0.889 |
 | CRCV mean (predeclared primary) | 0.594 | 0.419–0.766 |
-| CRCV maximum (secondary) | 0.674 | 0.506–0.830 |
 | Confidence variability | 0.777 | 0.632–0.904 |
 
 The primary CRCV statistic did not establish better-than-chance discrimination.
 It also trailed the confidence-only baseline by 0.183 AUROC (paired bootstrap
 95% CI: 0.018 to 0.345 worse). This tiny experiment therefore does **not**
-validate the CRCV hypothesis. Top-3 surprise improved AUROC by 0.040 over the
-previous best, but its paired bootstrap 95% interval was -0.056 to 0.128 and
-includes zero. The complete run took 24.4 seconds of generation on Apple MPS,
-excluding model loading.
+validate the CRCV hypothesis. The small differences among the top-ranked
+exploratory scores include zero in paired bootstrap comparisons. The complete
+run took 24.4 seconds of generation on Apple MPS, excluding model loading.
 
 The included base-model run is intentionally the same small stress test. Its
 primary CRCV AUROC was 0.508 (95% CI 0.328–0.677), while top-3 token surprise was
@@ -162,7 +194,8 @@ uv run python scripts/expose_onnx_hidden_state.py \
 ## Scope and honest limitations
 
 - A wrong short answer is used as an operational hallucination label.
-- Only one model, one layer, and greedy decoding are tested.
+- Only one small architecture, its Instruct/Base checkpoints, one layer, and
+  greedy decoding are tested.
 - The held-out set has only 50 examples, so uncertainty will be wide.
 - Alias matching can mislabel nuanced answers; inspect `predictions.jsonl`.
 - The result is useful even if CRCV performs at or below chance: that falsifies

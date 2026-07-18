@@ -14,3 +14,4 @@ outputs/*
 !outputs/qwen05b_100/**
 !outputs/qwen05b_base_100/
 !outputs/qwen05b_base_100/**
+!outputs/simple_metric_search.json

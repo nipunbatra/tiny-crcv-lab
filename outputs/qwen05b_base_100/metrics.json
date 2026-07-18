@@ -175,6 +175,291 @@
         "false_negative": 9,
         "true_positive": 10
       }
+    },
+    "top4_token_surprise": {
+      "display_name": "Top-4 token surprise",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7789661319073083,
+      "calibration_macro_f1": 0.7453310696095077,
+      "threshold": 1.3320080405288017,
+      "test_auroc": 0.7011884550084889,
+      "test_auroc_ci_95": [
+        0.5428571428571428,
+        0.8392857142857143
+      ],
+      "test_macro_f1": 0.625,
+      "test_confusion": {
+        "true_negative": 21,
+        "false_positive": 10,
+        "false_negative": 8,
+        "true_positive": 11
+      }
+    },
+    "skip_first_top3_surprise": {
+      "display_name": "Top-3 surprise after first token",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.786096256684492,
+      "calibration_macro_f1": 0.7702205882352942,
+      "threshold": 1.5214395191181214,
+      "test_auroc": 0.6926994906621392,
+      "test_auroc_ci_95": [
+        0.5211038961038961,
+        0.8370118845500849
+      ],
+      "test_macro_f1": 0.6026180458158018,
+      "test_confusion": {
+        "true_negative": 26,
+        "false_positive": 5,
+        "false_negative": 12,
+        "true_positive": 7
+      }
+    },
+    "surprise_shift_top3": {
+      "display_name": "Top-3 surprise × hidden shift",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7575757575757576,
+      "calibration_macro_f1": 0.7211497211497211,
+      "threshold": 1.0952570119313942,
+      "test_auroc": 0.567062818336163,
+      "test_auroc_ci_95": [
+        0.39501039501039503,
+        0.7261904761904762
+      ],
+      "test_macro_f1": 0.4945054945054945,
+      "test_confusion": {
+        "true_negative": 21,
+        "false_positive": 10,
+        "false_negative": 13,
+        "true_positive": 6
+      }
+    },
+    "uncertainty_shift_top3": {
+      "display_name": "Top-3 uncertainty × hidden shift",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.6951871657754011,
+      "calibration_macro_f1": 0.7083333333333334,
+      "threshold": 0.580782735055984,
+      "test_auroc": 0.49745331069609505,
+      "test_auroc_ci_95": [
+        0.3395585738539898,
+        0.6684491978609626
+      ],
+      "test_macro_f1": 0.4583333333333333,
+      "test_confusion": {
+        "true_negative": 17,
+        "false_positive": 14,
+        "false_negative": 12,
+        "true_positive": 7
+      }
+    },
+    "token_entropy_top3": {
+      "display_name": "Top-3 token entropy",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.732620320855615,
+      "calibration_macro_f1": 0.7328800388538126,
+      "threshold": 0.37254534661769867,
+      "test_auroc": 0.633276740237691,
+      "test_auroc_ci_95": [
+        0.4729064039408867,
+        0.7833333333333333
+      ],
+      "test_macro_f1": 0.587178241864983,
+      "test_confusion": {
+        "true_negative": 27,
+        "false_positive": 4,
+        "false_negative": 13,
+        "true_positive": 6
+      }
+    },
+    "token_entropy_mean": {
+      "display_name": "Mean token entropy",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.8342245989304813,
+      "calibration_macro_f1": 0.8095238095238095,
+      "threshold": 0.1331706497127622,
+      "test_auroc": 0.66553480475382,
+      "test_auroc_ci_95": [
+        0.49910873440285203,
+        0.8099838969404187
+      ],
+      "test_macro_f1": 0.6000000000000001,
+      "test_confusion": {
+        "true_negative": 30,
+        "false_positive": 1,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "token_entropy_max": {
+      "display_name": "Maximum token entropy",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.6559714795008913,
+      "calibration_macro_f1": 0.7716894977168949,
+      "threshold": 0.4252726435661316,
+      "test_auroc": 0.5806451612903226,
+      "test_auroc_ci_95": [
+        0.4025974025974026,
+        0.7555178268251274
+      ],
+      "test_macro_f1": 0.5558672276764843,
+      "test_confusion": {
+        "true_negative": 25,
+        "false_positive": 6,
+        "false_negative": 13,
+        "true_positive": 6
+      }
+    },
+    "token_ambiguity_top3": {
+      "display_name": "Top-3 token ambiguity",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7468805704099821,
+      "calibration_macro_f1": 0.7328800388538126,
+      "threshold": 0.9638161299129328,
+      "test_auroc": 0.7232597623089984,
+      "test_auroc_ci_95": [
+        0.575,
+        0.855
+      ],
+      "test_macro_f1": 0.5535714285714286,
+      "test_confusion": {
+        "true_negative": 27,
+        "false_positive": 4,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "token_ambiguity_mean": {
+      "display_name": "Mean token ambiguity",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.8146167557932263,
+      "calibration_macro_f1": 0.8161764705882353,
+      "threshold": 0.431660622298622,
+      "test_auroc": 0.6536502546689303,
+      "test_auroc_ci_95": [
+        0.4809027777777778,
+        0.8038194444444444
+      ],
+      "test_macro_f1": 0.587178241864983,
+      "test_confusion": {
+        "true_negative": 27,
+        "false_positive": 4,
+        "false_negative": 13,
+        "true_positive": 6
+      }
+    },
+    "token_ambiguity_max": {
+      "display_name": "Maximum token ambiguity",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.696078431372549,
+      "calibration_macro_f1": 0.7066666666666668,
+      "threshold": 0.9910827428102493,
+      "test_auroc": 0.6553480475382003,
+      "test_auroc_ci_95": [
+        0.49107142857142855,
+        0.8
+      ],
+      "test_macro_f1": 0.5091164095371669,
+      "test_confusion": {
+        "true_negative": 24,
+        "false_positive": 7,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "hidden_cosine_mean": {
+      "display_name": "Mean hidden cosine change",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.24777183600713013,
+      "calibration_macro_f1": 0.4172494172494173,
+      "threshold": 0.6147915202638377,
+      "test_auroc": 0.3242784380305603,
+      "test_auroc_ci_95": [
+        0.17833333333333334,
+        0.47619047619047616
+      ],
+      "test_macro_f1": 0.3551587301587301,
+      "test_confusion": {
+        "true_negative": 23,
+        "false_positive": 8,
+        "false_negative": 18,
+        "true_positive": 1
+      }
+    },
+    "hidden_cosine_max": {
+      "display_name": "Maximum hidden cosine change",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.3244206773618538,
+      "calibration_macro_f1": 0.5126705653021442,
+      "threshold": 0.9501250386238098,
+      "test_auroc": 0.48047538200339557,
+      "test_auroc_ci_95": [
+        0.29521829521829523,
+        0.6672794117647058
+      ],
+      "test_macro_f1": 0.49333333333333335,
+      "test_confusion": {
+        "true_negative": 28,
+        "false_positive": 3,
+        "false_negative": 16,
+        "true_positive": 3
+      }
+    },
+    "hidden_cosine_top3": {
+      "display_name": "Top-3 hidden cosine change",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.24777183600713013,
+      "calibration_macro_f1": 0.4375,
+      "threshold": 0.8947121798992157,
+      "test_auroc": 0.43463497453310695,
+      "test_auroc_ci_95": [
+        0.26285714285714284,
+        0.6105769230769231
+      ],
+      "test_macro_f1": 0.503968253968254,
+      "test_confusion": {
+        "true_negative": 26,
+        "false_positive": 5,
+        "false_negative": 15,
+        "true_positive": 4
+      }
+    },
+    "hidden_norm_mean": {
+      "display_name": "Mean hidden-state RMS norm",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7807486631016043,
+      "calibration_macro_f1": 0.7267759562841529,
+      "threshold": 8.713779191176098,
+      "test_auroc": 0.6434634974533107,
+      "test_auroc_ci_95": [
+        0.4760914760914761,
+        0.7983333333333333
+      ],
+      "test_macro_f1": 0.6427070197562001,
+      "test_confusion": {
+        "true_negative": 22,
+        "false_positive": 9,
+        "false_negative": 8,
+        "true_positive": 11
+      }
+    },
+    "hidden_norm_variability": {
+      "display_name": "Hidden-state norm variability",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.49376114081996436,
+      "calibration_macro_f1": 0.6329757199322417,
+      "threshold": 1.1885720769208898,
+      "test_auroc": 0.31918505942275044,
+      "test_auroc_ci_95": [
+        0.16145833333333334,
+        0.4838095238095238
+      ],
+      "test_macro_f1": 0.45436507936507936,
+      "test_confusion": {
+        "true_negative": 25,
+        "false_positive": 6,
+        "false_negative": 16,
+        "true_positive": 3
+      }
     }
   },
   "paired_comparison": {
@@ -192,6 +477,15 @@
     "test_auroc_difference_ci_95": [
       -0.06617647058823528,
       0.1921182266009852
+    ]
+  },
+  "primitive_comparison": {
+    "name": "top-3 token entropy minus top-3 token surprise",
+    "baseline_score_key": "top3_token_surprise",
+    "test_auroc_difference": -0.09507640067911716,
+    "test_auroc_difference_ci_95": [
+      -0.23051948051948046,
+      0.027027027027026973
     ]
   },
   "runtime": {

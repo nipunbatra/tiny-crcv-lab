@@ -1,6 +1,21 @@
 export type ModelKind = 'instruct' | 'base';
 
 export type FeatureKey =
+  | 'token_entropy_top3'
+  | 'token_entropy_mean'
+  | 'token_entropy_max'
+  | 'token_ambiguity_top3'
+  | 'token_ambiguity_mean'
+  | 'token_ambiguity_max'
+  | 'top4_token_surprise'
+  | 'skip_first_top3_surprise'
+  | 'surprise_shift_top3'
+  | 'uncertainty_shift_top3'
+  | 'hidden_cosine_mean'
+  | 'hidden_cosine_max'
+  | 'hidden_cosine_top3'
+  | 'hidden_norm_mean'
+  | 'hidden_norm_variability'
   | 'top3_token_surprise'
   | 'worst_token_surprise'
   | 'surprise_spread'
@@ -12,6 +27,21 @@ export type FeatureKey =
   | 'answer_tokens';
 
 export interface Features {
+  token_entropy_top3: number;
+  token_entropy_mean: number;
+  token_entropy_max: number;
+  token_ambiguity_top3: number;
+  token_ambiguity_mean: number;
+  token_ambiguity_max: number;
+  top4_token_surprise: number;
+  skip_first_top3_surprise: number;
+  surprise_shift_top3: number;
+  uncertainty_shift_top3: number;
+  hidden_cosine_mean: number;
+  hidden_cosine_max: number;
+  hidden_cosine_top3: number;
+  hidden_norm_mean: number;
+  hidden_norm_variability: number;
   top3_token_surprise: number;
   worst_token_surprise: number;
   surprise_spread: number;
@@ -37,6 +67,10 @@ export interface Prediction {
   token_pieces: string[];
   confidences: number[];
   hidden_shifts: Array<number | null>;
+  token_margins: number[];
+  token_entropies: number[];
+  hidden_cosine_distances: Array<number | null>;
+  hidden_norms: number[];
   features: Features;
   elapsed_seconds: number;
 }
@@ -71,6 +105,12 @@ export interface BenchmarkMetrics {
     test_auroc_difference: number;
     test_auroc_difference_ci_95: [number, number];
   };
+  primitive_comparison: {
+    name: string;
+    baseline_score_key: FeatureKey;
+    test_auroc_difference: number;
+    test_auroc_difference_ci_95: [number, number];
+  };
   runtime: Record<string, number>;
   answers_at_token_limit: number;
 }
@@ -80,7 +120,11 @@ export interface TokenCalculation {
   tokenIndex: number;
   token: string;
   confidence: number;
+  margin: number;
+  entropy: number;
   shift: number;
+  hiddenCosineDistance: number;
+  hiddenNorm: number;
   coupling: number;
   window: number[] | null;
   windowMean: number | null;
@@ -93,7 +137,11 @@ export interface LiveToken {
   tokenId: number;
   token: string;
   confidence: number;
+  margin: number;
+  entropy: number;
   hiddenShift: number | null;
+  hiddenCosineDistance: number | null;
+  hiddenNorm: number;
 }
 
 export type WorkerToMain =
@@ -101,5 +149,5 @@ export type WorkerToMain =
   | { type: 'progress'; file: string; loaded: number; total: number; progress: number }
   | { type: 'ready'; model: ModelKind; runtime: string; dtype: string }
   | { type: 'token'; token: LiveToken }
-  | { type: 'result'; answer: string; tokens: LiveToken[]; features: Features; elapsedMs: number }
+  | { type: 'result'; answer: string; tokens: LiveToken[]; features: Features; elapsedMs: number; qualityWarning: string | null }
   | { type: 'error'; message: string };

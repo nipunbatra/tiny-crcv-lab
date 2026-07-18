@@ -20,7 +20,14 @@ export function rollingSampleStd(values: number[], window = WINDOW): number[] {
   return result;
 }
 
-export function computeFeatures(confidences: number[], shifts: Array<number | null>, window = WINDOW): Features {
+type AuxiliarySignals = {
+  tokenMargins?: number[];
+  tokenEntropies?: number[];
+  hiddenCosineDistances?: Array<number | null>;
+  hiddenNorms?: number[];
+};
+
+export function computeFeatures(confidences: number[], shifts: Array<number | null>, window = WINDOW, signals: AuxiliarySignals = {}): Features {
   const valid = confidences
     .map((confidence, index) => ({ confidence, shift: shifts[index] }))
     .filter((pair): pair is { confidence: number; shift: number } => pair.shift !== null && Number.isFinite(pair.shift));
@@ -33,6 +40,14 @@ export function computeFeatures(confidences: number[], shifts: Array<number | nu
   const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
   const tokenSurprises = confidences.map((value) => -Math.log(Math.max(value, 1e-12)));
   const largestSurprises = [...tokenSurprises].sort((left, right) => right - left).slice(0, 3);
+  const meanOrZero = (values: number[]) => values.length ? mean(values) : 0;
+  const topMean = (values: number[], count = 3) => meanOrZero([...values].sort((left, right) => right - left).slice(0, count));
+  const surpriseShifts = valid.map(({ confidence, shift }) => -Math.log(Math.max(confidence, 1e-12)) * shift);
+  const uncertaintyShifts = valid.map(({ confidence, shift }) => (1 - confidence) * shift);
+  const ambiguities = (signals.tokenMargins ?? []).map((margin) => 1 - margin);
+  const entropies = signals.tokenEntropies ?? [];
+  const cosineDistances = (signals.hiddenCosineDistances ?? []).filter((value): value is number => value !== null && Number.isFinite(value));
+  const norms = signals.hiddenNorms ?? [];
   return {
     crcv_mean: mean(crcv),
     crcv_max: Math.max(...crcv),
@@ -40,8 +55,23 @@ export function computeFeatures(confidences: number[], shifts: Array<number | nu
     shift_variance_mean: mean(shiftCrcv),
     mean_nll: tokenSurprises.length ? mean(tokenSurprises) : 0,
     top3_token_surprise: largestSurprises.length ? mean(largestSurprises) : 0,
+    top4_token_surprise: topMean(tokenSurprises, 4),
+    skip_first_top3_surprise: topMean(tokenSurprises.slice(1)),
     worst_token_surprise: largestSurprises[0] ?? 0,
     surprise_spread: sampleStd(tokenSurprises),
+    surprise_shift_top3: topMean(surpriseShifts),
+    uncertainty_shift_top3: topMean(uncertaintyShifts),
+    token_ambiguity_mean: meanOrZero(ambiguities),
+    token_ambiguity_max: Math.max(...ambiguities, 0),
+    token_ambiguity_top3: topMean(ambiguities),
+    token_entropy_mean: meanOrZero(entropies),
+    token_entropy_max: Math.max(...entropies, 0),
+    token_entropy_top3: topMean(entropies),
+    hidden_cosine_mean: meanOrZero(cosineDistances),
+    hidden_cosine_max: Math.max(...cosineDistances, 0),
+    hidden_cosine_top3: topMean(cosineDistances),
+    hidden_norm_mean: meanOrZero(norms),
+    hidden_norm_variability: sampleStd(norms),
     answer_tokens: confidences.length,
   };
 }
@@ -50,6 +80,13 @@ export function liveFeatures(tokens: LiveToken[]): Features {
   return computeFeatures(
     tokens.map((token) => token.confidence),
     tokens.map((token) => token.hiddenShift),
+    WINDOW,
+    {
+      tokenMargins: tokens.map((token) => token.margin),
+      tokenEntropies: tokens.map((token) => token.entropy),
+      hiddenCosineDistances: tokens.map((token) => token.hiddenCosineDistance),
+      hiddenNorms: tokens.map((token) => token.hiddenNorm),
+    },
   );
 }
 
@@ -64,7 +101,11 @@ export function tokenCalculations(prediction: Prediction, window = WINDOW): Toke
       tokenIndex: traceIndex + 1,
       token: prediction.token_pieces[traceIndex],
       confidence,
+      margin: prediction.token_margins?.[traceIndex] ?? 0,
+      entropy: prediction.token_entropies?.[traceIndex] ?? 0,
       shift,
+      hiddenCosineDistance: prediction.hidden_cosine_distances?.[traceIndex] ?? 0,
+      hiddenNorm: prediction.hidden_norms?.[traceIndex] ?? 0,
       coupling,
       window: null,
       windowMean: null,

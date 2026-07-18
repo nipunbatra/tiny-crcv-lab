@@ -1,7 +1,8 @@
-"""Single-pass greedy generation with confidence and hidden-state-shift capture."""
+"""Single-pass greedy generation with token-distribution and hidden-state signals."""
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -13,6 +14,10 @@ class GenerationTrace:
     token_pieces: list[str]
     confidences: list[float]
     shifts: list[float | None]
+    token_margins: list[float]
+    token_entropies: list[float]
+    hidden_cosine_distances: list[float | None]
+    hidden_norms: list[float]
     elapsed_seconds: float
 
 
@@ -109,6 +114,10 @@ class WhiteBoxGenerator:
         token_ids: list[int] = []
         confidences: list[float] = []
         shifts: list[float | None] = []
+        token_margins: list[float] = []
+        token_entropies: list[float] = []
+        hidden_cosine_distances: list[float | None] = []
+        hidden_norms: list[float] = []
         previous_hidden = None
 
         start = time.perf_counter()
@@ -129,22 +138,39 @@ class WhiteBoxGenerator:
                 if next_token_id in self.eos_ids:
                     break
 
-                log_probability = torch.log_softmax(logits.float(), dim=-1)[
-                    0, next_token_id
-                ]
-                confidence = float(torch.exp(log_probability).item())
+                log_probabilities = torch.log_softmax(logits.float(), dim=-1)
+                top_probabilities = torch.exp(torch.topk(log_probabilities, k=2, dim=-1).values)
+                confidence = float(top_probabilities[0, 0].item())
+                token_margin = float((top_probabilities[0, 0] - top_probabilities[0, 1]).item())
+                probabilities = torch.exp(log_probabilities)
+                token_entropy = float(
+                    (-(probabilities * log_probabilities).sum() / math.log(logits.shape[-1])).item()
+                )
+                current_float = current_hidden.float()
+                hidden_norm = float(
+                    (torch.linalg.vector_norm(current_float) / math.sqrt(current_float.shape[-1])).item()
+                )
                 if previous_hidden is None:
                     shift = None
+                    hidden_cosine_distance = None
                 else:
                     numerator = torch.linalg.vector_norm(
-                        current_hidden.float() - previous_hidden.float()
+                        current_float - previous_hidden.float()
                     )
                     denominator = torch.linalg.vector_norm(previous_hidden.float()) + 1e-8
                     shift = float((numerator / denominator).item())
+                    cosine = torch.nn.functional.cosine_similarity(
+                        current_float, previous_hidden.float(), dim=-1, eps=1e-8
+                    )
+                    hidden_cosine_distance = float(torch.clamp(1.0 - cosine, 0.0, 2.0).item())
 
                 token_ids.append(next_token_id)
                 confidences.append(confidence)
                 shifts.append(shift)
+                token_margins.append(token_margin)
+                token_entropies.append(token_entropy)
+                hidden_cosine_distances.append(hidden_cosine_distance)
+                hidden_norms.append(hidden_norm)
                 previous_hidden = current_hidden.detach()
 
                 outputs = self.model(
@@ -168,5 +194,9 @@ class WhiteBoxGenerator:
             ],
             confidences=confidences,
             shifts=shifts,
+            token_margins=token_margins,
+            token_entropies=token_entropies,
+            hidden_cosine_distances=hidden_cosine_distances,
+            hidden_norms=hidden_norms,
             elapsed_seconds=elapsed,
         )

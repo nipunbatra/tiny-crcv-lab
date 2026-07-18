@@ -23,6 +23,10 @@ def rescore(output_dir: Path) -> None:
             row["confidences"],
             row["hidden_shifts"],
             window=int(metadata["window"]),
+            token_margins=row.get("token_margins"),
+            token_entropies=row.get("token_entropies"),
+            hidden_cosine_distances=row.get("hidden_cosine_distances"),
+            hidden_norms=row.get("hidden_norms"),
         )
 
     predictions_path.write_text(

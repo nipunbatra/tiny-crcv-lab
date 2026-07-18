@@ -36,6 +36,22 @@ def test_simple_token_surprise_features() -> None:
     assert features["surprise_spread"] > 0
 
 
+def test_distribution_and_hidden_state_features() -> None:
+    features = compute_features(
+        [0.8, 0.4, 0.2],
+        [None, 0.3, 0.6],
+        window=5,
+        token_margins=[0.7, 0.2, 0.05],
+        token_entropies=[0.1, 0.4, 0.7],
+        hidden_cosine_distances=[None, 0.02, 0.08],
+        hidden_norms=[1.0, 2.0, 3.0],
+    )
+    assert features["token_ambiguity_mean"] == pytest.approx((0.3 + 0.8 + 0.95) / 3)
+    assert features["token_entropy_top3"] == pytest.approx(0.4)
+    assert features["hidden_cosine_max"] == pytest.approx(0.08)
+    assert features["hidden_norm_variability"] == pytest.approx(1.0)
+
+
 def test_auroc_and_macro_f1() -> None:
     labels = [0, 0, 1, 1]
     assert auroc(labels, [0.1, 0.2, 0.8, 0.9]) == 1.0

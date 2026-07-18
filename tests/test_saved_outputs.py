@@ -20,6 +20,12 @@ def test_saved_features_recompute_from_raw_traces(folder: str) -> None:
     assert len(rows) == 100
     for row in rows:
         recomputed = compute_features(
-            row["confidences"], row["hidden_shifts"], window=metadata["window"]
+            row["confidences"],
+            row["hidden_shifts"],
+            window=metadata["window"],
+            token_margins=row["token_margins"],
+            token_entropies=row["token_entropies"],
+            hidden_cosine_distances=row["hidden_cosine_distances"],
+            hidden_norms=row["hidden_norms"],
         )
         assert row["features"] == pytest.approx(recomputed)

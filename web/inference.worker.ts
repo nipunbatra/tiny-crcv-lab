@@ -109,21 +109,65 @@ function normalizedShift(current: Float32Array, previous: Float32Array | null): 
   return Math.sqrt(squaredDelta) / (Math.sqrt(squaredPrevious) + 1e-8);
 }
 
-function greedyToken(logits: any): { tokenId: number; confidence: number } {
+function hiddenObservables(current: Float32Array, previous: Float32Array | null): { hiddenShift: number | null; hiddenCosineDistance: number | null; hiddenNorm: number } {
+  let squaredCurrent = 0;
+  let squaredPrevious = 0;
+  let dot = 0;
+  for (let index = 0; index < current.length; index += 1) {
+    squaredCurrent += current[index] ** 2;
+    if (previous) {
+      squaredPrevious += previous[index] ** 2;
+      dot += current[index] * previous[index];
+    }
+  }
+  const hiddenNorm = Math.sqrt(squaredCurrent / current.length);
+  if (!previous) return { hiddenShift: null, hiddenCosineDistance: null, hiddenNorm };
+  const cosine = dot / (Math.sqrt(squaredCurrent) * Math.sqrt(squaredPrevious) + 1e-8);
+  return {
+    hiddenShift: normalizedShift(current, previous),
+    hiddenCosineDistance: Math.max(0, Math.min(2, 1 - cosine)),
+    hiddenNorm,
+  };
+}
+
+function greedyToken(logits: any): { tokenId: number; confidence: number; margin: number; entropy: number } {
   const data = logits.data as ArrayLike<number>;
   const vocab = logits.dims.at(-1) as number;
   const offset = data.length - vocab;
   let tokenId = 0;
   let maximum = Number.NEGATIVE_INFINITY;
+  let secondMaximum = Number.NEGATIVE_INFINITY;
   for (let index = 0; index < vocab; index += 1) {
     const value = valueAt(data, offset + index, logits.type);
-    if (value > maximum) { maximum = value; tokenId = index; }
+    if (value > maximum) {
+      secondMaximum = maximum;
+      maximum = value;
+      tokenId = index;
+    } else if (value > secondMaximum) {
+      secondMaximum = value;
+    }
   }
   let denominator = 0;
+  let weightedShiftedLogit = 0;
   for (let index = 0; index < vocab; index += 1) {
-    denominator += Math.exp(valueAt(data, offset + index, logits.type) - maximum);
+    const shifted = valueAt(data, offset + index, logits.type) - maximum;
+    const weight = Math.exp(shifted);
+    denominator += weight;
+    weightedShiftedLogit += weight * shifted;
   }
-  return { tokenId, confidence: 1 / denominator };
+  const confidence = 1 / denominator;
+  const secondConfidence = Math.exp(secondMaximum - maximum) / denominator;
+  const entropy = (Math.log(denominator) - weightedShiftedLogit / denominator) / Math.log(vocab);
+  return { tokenId, confidence, margin: confidence - secondConfidence, entropy };
+}
+
+function repetitionWarning(tokenIds: number[]): string | null {
+  if (tokenIds.length < 8) return null;
+  const trigrams = tokenIds.slice(0, -2).map((_, index) => tokenIds.slice(index, index + 3).join(','));
+  const duplicateFraction = 1 - new Set(trigrams).size / trigrams.length;
+  return duplicateFraction >= 0.25
+    ? 'Repeated token patterns detected. Treat this as a degenerate generation, not a meaningful factual answer.'
+    : null;
 }
 
 function eosIds(model: any, tokenizer: any): Set<number> {
@@ -147,13 +191,25 @@ function promptInputs(tokenizer: any, model: ModelKind, question: string): any {
   ], { add_generation_prompt: true, return_dict: true });
 }
 
+async function selectDtype(runtime: RunMessage['runtime']): Promise<{ dtype: 'q4' | 'q4f16'; detail: string }> {
+  if (runtime === 'wasm') return { dtype: 'q4', detail: 'WASM q4' };
+  const gpu = (ctx.navigator as any).gpu;
+  const adapter = await gpu?.requestAdapter();
+  if (!adapter) throw new Error('WebGPU was selected, but this browser could not provide a GPU adapter. Choose WASM and retry.');
+  const shaderF16 = adapter.features?.has('shader-f16') ?? false;
+  return shaderF16
+    ? { dtype: 'q4f16', detail: 'WebGPU q4f16 (shader-f16 available)' }
+    : { dtype: 'q4', detail: 'WebGPU q4 compatibility mode (shader-f16 unavailable)' };
+}
+
 async function run(message: RunMessage): Promise<void> {
   installPatchedCache();
   const repo = modelRepo(message.model);
-  const dtype = message.runtime === 'webgpu' ? 'q4f16' : 'q4';
+  const selected = await selectDtype(message.runtime);
+  const dtype = selected.dtype;
   send({ type: 'status', phase: 'Tokenizer', detail: `loading ${repo}` });
   const tokenizer = await AutoTokenizer.from_pretrained(repo);
-  send({ type: 'status', phase: 'Runtime', detail: `initializing ${message.runtime.toUpperCase()} (${dtype})` });
+  send({ type: 'status', phase: 'Runtime', detail: `initializing ${selected.detail}` });
   const model: any = await AutoModelForCausalLM.from_pretrained(repo, {
     dtype,
     device: message.runtime,
@@ -167,31 +223,47 @@ async function run(message: RunMessage): Promise<void> {
     throw new Error('The ONNX graph loaded without the requested hidden-state output. Clear this site’s model cache and retry.');
   }
   send({ type: 'ready', model: message.model, runtime: message.runtime, dtype });
-  send({ type: 'status', phase: 'Inference', detail: 'greedy decoding and tracing token states' });
+  send({ type: 'status', phase: 'Inference', detail: 'greedy decoding with the library generation path' });
 
   const start = performance.now();
+  const generationInputs: any = promptInputs(tokenizer, message.model, message.question);
+  const promptLength = generationInputs.input_ids.dims.at(-1) as number;
+  const generated: any = await model.generate({
+    ...generationInputs,
+    do_sample: false,
+    max_new_tokens: message.maxNewTokens,
+  });
+  const sequenceTensor = generated.sequences ?? generated;
+  const fullSequence = (sequenceTensor.tolist()[0] as bigint[]).map(Number);
+  const eos = eosIds(model, tokenizer);
+  const generatedIds = fullSequence.slice(promptLength).filter((tokenId) => !eos.has(tokenId));
+  sequenceTensor.dispose?.();
+
+  send({ type: 'status', phase: 'Trace', detail: 'replaying the chosen tokens to expose every signal' });
   let modelInputs: any = promptInputs(tokenizer, message.model, message.question);
   const allInputIds: bigint[][] = modelInputs.input_ids.tolist();
-  const generatedIds: number[] = [];
   const tokens: LiveToken[] = [];
   let previousHidden: Float32Array | null = null;
-  const eos = eosIds(model, tokenizer);
   const generationConfig = model.generation_config ?? {};
 
-  for (let step = 0; step < message.maxNewTokens; step += 1) {
+  for (const generatedTokenId of generatedIds) {
     modelInputs = model.prepare_inputs_for_generation(allInputIds, modelInputs, generationConfig);
     const outputs: any = await model.forward(modelInputs);
-    const { tokenId, confidence } = greedyToken(outputs.logits);
-    if (eos.has(tokenId)) break;
+    const { tokenId, confidence, margin, entropy } = greedyToken(outputs.logits);
+    if (tokenId !== generatedTokenId) {
+      throw new Error(`Trace replay diverged from generation (${generatedTokenId} vs ${tokenId}).`);
+    }
     const hidden = lastVector(outputs[HIDDEN_NAME]);
+    const hiddenSignals = hiddenObservables(hidden, previousHidden);
     const token: LiveToken = {
       tokenId,
       token: tokenizer.decode([tokenId], { skip_special_tokens: false }),
       confidence,
-      hiddenShift: normalizedShift(hidden, previousHidden),
+      margin,
+      entropy,
+      ...hiddenSignals,
     };
     previousHidden = hidden;
-    generatedIds.push(tokenId);
     tokens.push(token);
     send({ type: 'token', token });
     allInputIds[0].push(BigInt(tokenId));
@@ -206,7 +278,7 @@ async function run(message: RunMessage): Promise<void> {
   const answer = tokenizer.decode(generatedIds, { skip_special_tokens: true }).trim();
   const elapsedMs = performance.now() - start;
   await model.dispose();
-  send({ type: 'result', answer, tokens, features: liveFeatures(tokens), elapsedMs });
+  send({ type: 'result', answer, tokens, features: liveFeatures(tokens), elapsedMs, qualityWarning: repetitionWarning(generatedIds) });
 }
 
 ctx.onmessage = (event: MessageEvent<RunMessage>) => {

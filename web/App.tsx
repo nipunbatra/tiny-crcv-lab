@@ -38,21 +38,51 @@ const questionTokens = questionTokensJson as Record<string, Array<{ id: number; 
 type AppView = 'overview' | 'explore' | 'live';
 
 const metricKeys: FeatureKey[] = [
+  'token_entropy_top3',
+  'skip_first_top3_surprise',
   'top3_token_surprise',
+  'top4_token_surprise',
+  'surprise_shift_top3',
+  'uncertainty_shift_top3',
+  'token_entropy_max',
+  'token_ambiguity_top3',
+  'token_ambiguity_max',
+  'token_entropy_mean',
+  'token_ambiguity_mean',
   'worst_token_surprise',
   'surprise_spread',
   'confidence_variance_mean',
   'mean_nll',
+  'hidden_norm_mean',
   'crcv_max',
   'crcv_mean',
+  'hidden_cosine_max',
+  'hidden_cosine_top3',
+  'hidden_cosine_mean',
+  'hidden_norm_variability',
   'shift_variance_mean',
   'answer_tokens',
 ];
 
 const metricShort: Record<FeatureKey, string> = {
+  token_entropy_top3: 'Top-3 entropy',
+  token_entropy_mean: 'Mean entropy',
+  token_entropy_max: 'Max entropy',
+  token_ambiguity_top3: 'Top-3 ambiguity',
+  token_ambiguity_mean: 'Mean ambiguity',
+  token_ambiguity_max: 'Max ambiguity',
   top3_token_surprise: 'Top-3 surprise',
+  top4_token_surprise: 'Top-4 surprise',
+  skip_first_top3_surprise: 'Top-3 after first',
+  surprise_shift_top3: 'Surprise × shift',
+  uncertainty_shift_top3: 'Uncertainty × shift',
   worst_token_surprise: 'Worst-token surprise',
   surprise_spread: 'Surprise spread',
+  hidden_cosine_mean: 'Mean cosine change',
+  hidden_cosine_max: 'Max cosine change',
+  hidden_cosine_top3: 'Top-3 cosine change',
+  hidden_norm_mean: 'Mean hidden norm',
+  hidden_norm_variability: 'Hidden-norm var.',
   crcv_mean: 'CRCV mean',
   crcv_max: 'CRCV max',
   mean_nll: 'Token surprise',
@@ -65,23 +95,38 @@ type MetricDefinition = {
   formula: string;
   plain: string;
   input: string;
-  group: 'new' | 'confidence' | 'hidden' | 'control';
+  group: 'distribution' | 'confidence' | 'coupled' | 'hidden' | 'control';
 };
 
 const metricDefinitions: Record<FeatureKey, MetricDefinition> = {
-  top3_token_surprise: { formula: 'T₃ = (1/k) Σ top-k(uₜ),  uₜ = −ln(cₜ),  k = min(3,n)', plain: 'Average surprise of up to the three least-confident generated tokens.', input: 'selected-token confidences cₜ', group: 'new' },
-  worst_token_surprise: { formula: 'Umax = maxₜ(−ln(cₜ))', plain: 'Surprise of the single least-confident generated token.', input: 'selected-token confidences cₜ', group: 'new' },
-  surprise_spread: { formula: 'SDᵤ = sample-SD(−ln(c₁), …, −ln(cₙ))', plain: 'How unevenly token surprise is distributed across the answer.', input: 'selected-token confidences cₜ', group: 'new' },
+  token_entropy_top3: { formula: 'mean(top 3 of eₜ),  eₜ = −Σᵥpₜᵥln(pₜᵥ) / ln|V|', plain: 'Average full-vocabulary uncertainty at the three most uncertain token decisions.', input: 'the full next-token probability distribution pₜ over 151,936 tokens', group: 'distribution' },
+  token_entropy_mean: { formula: 'mean(eₜ),  eₜ = −Σᵥpₜᵥln(pₜᵥ) / ln|V|', plain: 'Average normalized uncertainty of the full vocabulary distribution.', input: 'the full next-token probability distribution pₜ', group: 'distribution' },
+  token_entropy_max: { formula: 'maxₜ(eₜ)', plain: 'The single most diffuse next-token decision in the answer.', input: 'normalized token entropies eₜ', group: 'distribution' },
+  token_ambiguity_top3: { formula: 'mean(top 3 of aₜ),  aₜ = 1 − (p₁ₜ − p₂ₜ)', plain: 'Average ambiguity at the three decisions where the winner was least separated from the runner-up.', input: 'largest and second-largest next-token probabilities', group: 'distribution' },
+  token_ambiguity_mean: { formula: 'mean(aₜ),  aₜ = 1 − (p₁ₜ − p₂ₜ)', plain: 'Average closeness of the winning token to its runner-up.', input: 'top-1 and top-2 next-token probabilities', group: 'distribution' },
+  token_ambiguity_max: { formula: 'maxₜ(aₜ)', plain: 'The most ambiguous winner-versus-runner-up decision.', input: 'token ambiguity aₜ', group: 'distribution' },
+  top3_token_surprise: { formula: 'T₃ = (1/k) Σ top-k(uₜ),  uₜ = −ln(cₜ),  k = min(3,n)', plain: 'Average surprise of up to the three least-confident generated tokens.', input: 'selected-token confidences cₜ', group: 'confidence' },
+  top4_token_surprise: { formula: 'T₄ = (1/k) Σ top-k(uₜ),  k = min(4,n)', plain: 'The same confidence-tail idea averaged over four tokens.', input: 'selected-token surprises uₜ = −ln(cₜ)', group: 'confidence' },
+  skip_first_top3_surprise: { formula: 'mean(top 3 of uₜ for t > 1)', plain: 'Top-3 surprise after removing the often-boilerplate first generated token.', input: 'token surprise and token position', group: 'confidence' },
+  worst_token_surprise: { formula: 'Umax = maxₜ(−ln(cₜ))', plain: 'Surprise of the single least-confident generated token.', input: 'selected-token confidences cₜ', group: 'confidence' },
+  surprise_spread: { formula: 'SDᵤ = sample-SD(−ln(c₁), …, −ln(cₙ))', plain: 'How unevenly token surprise is distributed across the answer.', input: 'selected-token confidences cₜ', group: 'confidence' },
   confidence_variance_mean: { formula: 'mean_w sample-SD(cₜ in trailing window w)', plain: 'Average local wobble in selected-token confidence.', input: 'confidences with a valid state shift; W = 5', group: 'confidence' },
   mean_nll: { formula: 'NLL = (1/n) Σₜ −ln(cₜ)', plain: 'Average surprise across every generated token.', input: 'selected-token confidences cₜ', group: 'confidence' },
-  crcv_max: { formula: 'CRCVmax = max_w sample-SD(cₜrₜ in w)', plain: 'Largest local burst in the confidence × hidden-movement signal.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'hidden' },
-  crcv_mean: { formula: 'CRCVmean = mean_w sample-SD(cₜrₜ in w)', plain: 'Average local variability in confidence × hidden-state movement.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'hidden' },
+  surprise_shift_top3: { formula: 'mean(top 3 of (−ln(cₜ))rₜ)', plain: 'A corrected CRCV-style coupling that grows with uncertainty instead of confidence.', input: 'token surprise and normalized hidden shift', group: 'coupled' },
+  uncertainty_shift_top3: { formula: 'mean(top 3 of (1−cₜ)rₜ)', plain: 'A bounded uncertainty × hidden-movement coupling.', input: 'selected-token confidence and normalized hidden shift', group: 'coupled' },
+  crcv_max: { formula: 'CRCVmax = max_w sample-SD(cₜrₜ in w)', plain: 'Largest local burst in the confidence × hidden-movement signal.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'coupled' },
+  crcv_mean: { formula: 'CRCVmean = mean_w sample-SD(cₜrₜ in w)', plain: 'Average local variability in confidence × hidden-state movement.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'coupled' },
+  hidden_cosine_mean: { formula: 'mean(dₜ),  dₜ = 1 − cos(hₜ,hₜ₋₁)', plain: 'Average directional turn in the final hidden state.', input: 'consecutive final hidden-state vectors', group: 'hidden' },
+  hidden_cosine_max: { formula: 'maxₜ(dₜ)', plain: 'Largest directional turn between consecutive final states.', input: 'hidden-state cosine distances dₜ', group: 'hidden' },
+  hidden_cosine_top3: { formula: 'mean(top 3 of dₜ)', plain: 'Average of the three largest final-state direction changes.', input: 'hidden-state cosine distances dₜ', group: 'hidden' },
+  hidden_norm_mean: { formula: 'mean(‖hₜ‖₂ / √896)', plain: 'Average RMS magnitude of the final hidden state.', input: 'the 896-number final hidden state hₜ', group: 'hidden' },
+  hidden_norm_variability: { formula: 'sample-SD(‖hₜ‖₂ / √896)', plain: 'How much final-state magnitude changes across the answer.', input: 'per-token hidden-state RMS norms', group: 'hidden' },
   shift_variance_mean: { formula: 'mean_w sample-SD(rₜ in trailing window w)', plain: 'Average local wobble in normalized hidden-state movement.', input: 'normalized final-state shifts rₜ; W = 5', group: 'hidden' },
   answer_tokens: { formula: 'L = n', plain: 'Number of generated tokens; a control for answer length.', input: 'generated token pieces', group: 'control' },
 };
 
-const newMetricKeys: FeatureKey[] = ['top3_token_surprise', 'worst_token_surprise', 'surprise_spread'];
-const originalMetricKeys = metricKeys.filter((key) => !newMetricKeys.includes(key));
+const originalMetricKeys: FeatureKey[] = ['crcv_mean', 'crcv_max', 'mean_nll', 'confidence_variance_mean', 'shift_variance_mean', 'answer_tokens'];
+const newMetricKeys = metricKeys.filter((key) => !originalMetricKeys.includes(key));
 
 const format = (value: number, digits = 3) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const pct = (value: number) => `${Math.round(value * 100)}%`;
@@ -95,12 +140,49 @@ function workedExample(key: FeatureKey, prediction: Prediction): WorkedExample {
     token: prediction.token_pieces[index],
   }));
   const descending = [...surprises].sort((left, right) => right.surprise - left.surprise);
+  const entropyItems = prediction.token_entropies.map((value, index) => ({ value, token: prediction.token_pieces[index] }));
+  const ambiguityItems = prediction.token_margins.map((margin, index) => ({ value: 1 - margin, token: prediction.token_pieces[index], margin }));
+  const cosineItems = prediction.hidden_cosine_distances.flatMap((value, index) => value === null ? [] : [{ value, token: prediction.token_pieces[index] }]);
+  const normItems = prediction.hidden_norms.map((value, index) => ({ value, token: prediction.token_pieces[index] }));
+  const stateItems = prediction.hidden_shifts.flatMap((shift, index) => shift === null ? [] : [{
+    token: prediction.token_pieces[index],
+    confidence: prediction.confidences[index],
+    shift,
+    surpriseShift: -Math.log(Math.max(prediction.confidences[index], 1e-12)) * shift,
+    uncertaintyShift: (1 - prediction.confidences[index]) * shift,
+  }]);
   const calculations = tokenCalculations(prediction);
   const confidenceWindows = rollingSampleStd(calculations.map((row) => row.confidence));
   const shiftWindows = rollingSampleStd(calculations.map((row) => row.shift));
   const crcvWindows = calculations.flatMap((row) => row.crcv === null ? [] : [row.crcv]);
   const numberList = (values: number[], digits = 3) => `[${values.map((value) => format(value, digits)).join(', ')}]`;
   const meanArithmetic = (values: number[]) => `mean ${numberList(values)} = ${format(values.reduce((sum, value) => sum + value, 0) / values.length, 4)}`;
+  const topItems = <T extends { value: number },>(items: T[], count = 3) => [...items].sort((left, right) => right.value - left.value).slice(0, count);
+  const itemInputs = (items: Array<{ token: string; value: number }>, symbol: string) => items.map((item) => `${JSON.stringify(item.token)}: ${symbol}=${format(item.value, 4)}`).join(' · ');
+
+  if (key === 'token_entropy_top3') {
+    const selected = topItems(entropyItems);
+    return { inputs: itemInputs(selected, 'e'), arithmetic: meanArithmetic(selected.map((item) => item.value)), score: prediction.features[key] };
+  }
+  if (key === 'token_entropy_mean') {
+    return { inputs: `eₜ = ${numberList(prediction.token_entropies)}`, arithmetic: meanArithmetic(prediction.token_entropies), score: prediction.features[key] };
+  }
+  if (key === 'token_entropy_max') {
+    const selected = topItems(entropyItems, 1)[0];
+    return { inputs: itemInputs([selected], 'e'), arithmetic: `max(eₜ) = ${format(selected.value, 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'token_ambiguity_top3') {
+    const selected = topItems(ambiguityItems);
+    return { inputs: selected.map((item) => `${JSON.stringify(item.token)}: margin=${format(item.margin, 4)} → a=${format(item.value, 4)}`).join(' · '), arithmetic: meanArithmetic(selected.map((item) => item.value)), score: prediction.features[key] };
+  }
+  if (key === 'token_ambiguity_mean') {
+    const values = ambiguityItems.map((item) => item.value);
+    return { inputs: `aₜ = 1−margin = ${numberList(values)}`, arithmetic: meanArithmetic(values), score: prediction.features[key] };
+  }
+  if (key === 'token_ambiguity_max') {
+    const selected = topItems(ambiguityItems, 1)[0];
+    return { inputs: `${JSON.stringify(selected.token)}: 1−${format(selected.margin, 4)} = ${format(selected.value, 4)}`, arithmetic: `max(aₜ) = ${format(selected.value, 4)}`, score: prediction.features[key] };
+  }
 
   if (key === 'top3_token_surprise') {
     const selected = descending.slice(0, 3);
@@ -110,12 +192,28 @@ function workedExample(key: FeatureKey, prediction: Prediction): WorkedExample {
       score: prediction.features[key],
     };
   }
+  if (key === 'top4_token_surprise') {
+    const selected = descending.slice(0, 4);
+    return { inputs: selected.map((item) => `${JSON.stringify(item.token)}: u=${format(item.surprise, 4)}`).join(' · '), arithmetic: meanArithmetic(selected.map((item) => item.surprise)), score: prediction.features[key] };
+  }
+  if (key === 'skip_first_top3_surprise') {
+    const selected = [...surprises.slice(1)].sort((left, right) => right.surprise - left.surprise).slice(0, 3);
+    return { inputs: `first token removed · ${selected.map((item) => `${JSON.stringify(item.token)}: u=${format(item.surprise, 4)}`).join(' · ')}`, arithmetic: meanArithmetic(selected.map((item) => item.surprise)), score: prediction.features[key] };
+  }
   if (key === 'worst_token_surprise') {
     const selected = descending[0];
     return { inputs: `${JSON.stringify(selected.token)} has the lowest cₜ = ${format(selected.confidence, 5)}`, arithmetic: `−ln(${format(selected.confidence, 5)}) = ${format(selected.surprise, 4)}`, score: prediction.features[key] };
   }
   if (key === 'surprise_spread') {
     return { inputs: `uₜ = ${numberList(surprises.map((item) => item.surprise))}`, arithmetic: `sample-SD(uₜ) = ${format(prediction.features[key], 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'surprise_shift_top3') {
+    const selected = [...stateItems].sort((left, right) => right.surpriseShift - left.surpriseShift).slice(0, 3);
+    return { inputs: selected.map((item) => `${JSON.stringify(item.token)}: −ln(${format(item.confidence, 3)})×${format(item.shift, 3)}=${format(item.surpriseShift, 4)}`).join(' · '), arithmetic: meanArithmetic(selected.map((item) => item.surpriseShift)), score: prediction.features[key] };
+  }
+  if (key === 'uncertainty_shift_top3') {
+    const selected = [...stateItems].sort((left, right) => right.uncertaintyShift - left.uncertaintyShift).slice(0, 3);
+    return { inputs: selected.map((item) => `${JSON.stringify(item.token)}: (1−${format(item.confidence, 3)})×${format(item.shift, 3)}=${format(item.uncertaintyShift, 4)}`).join(' · '), arithmetic: meanArithmetic(selected.map((item) => item.uncertaintyShift)), score: prediction.features[key] };
   }
   if (key === 'confidence_variance_mean') {
     return { inputs: `window SDs = ${numberList(confidenceWindows)}`, arithmetic: meanArithmetic(confidenceWindows), score: prediction.features[key] };
@@ -131,6 +229,26 @@ function workedExample(key: FeatureKey, prediction: Prediction): WorkedExample {
   }
   if (key === 'shift_variance_mean') {
     return { inputs: `window SDs = ${numberList(shiftWindows)}`, arithmetic: meanArithmetic(shiftWindows), score: prediction.features[key] };
+  }
+  if (key === 'hidden_cosine_mean') {
+    const values = cosineItems.map((item) => item.value);
+    return { inputs: `dₜ = ${numberList(values)}`, arithmetic: meanArithmetic(values), score: prediction.features[key] };
+  }
+  if (key === 'hidden_cosine_max') {
+    const selected = topItems(cosineItems, 1)[0];
+    return { inputs: itemInputs([selected], 'd'), arithmetic: `max(dₜ) = ${format(selected.value, 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'hidden_cosine_top3') {
+    const selected = topItems(cosineItems);
+    return { inputs: itemInputs(selected, 'd'), arithmetic: meanArithmetic(selected.map((item) => item.value)), score: prediction.features[key] };
+  }
+  if (key === 'hidden_norm_mean') {
+    const values = normItems.map((item) => item.value);
+    return { inputs: `RMS norms = ${numberList(values)}`, arithmetic: meanArithmetic(values), score: prediction.features[key] };
+  }
+  if (key === 'hidden_norm_variability') {
+    const values = normItems.map((item) => item.value);
+    return { inputs: `RMS norms = ${numberList(values)}`, arithmetic: `sample-SD = ${format(prediction.features[key], 4)}`, score: prediction.features[key] };
   }
   return { inputs: prediction.token_pieces.map((token) => JSON.stringify(token)).join(' · '), arithmetic: `count = ${prediction.token_pieces.length}`, score: prediction.features[key] };
 }
@@ -183,10 +301,9 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
 
 function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => void; onRun: () => void }) {
   const bench = benchmarks[model];
-  const bestNewKey = newMetricKeys.reduce((best, key) => bench.scores[key].test_auroc > bench.scores[best].test_auroc ? key : best);
-  const previousBestKey = originalMetricKeys.reduce((best, key) => bench.scores[key].test_auroc > bench.scores[best].test_auroc ? key : best);
-  const bestNew = bench.scores[bestNewKey];
-  const previousBest = bench.scores[previousBestKey];
+  const entropy = bench.scores.token_entropy_top3;
+  const confidenceTail = bench.scores.top3_token_surprise;
+  const featured = model === 'instruct' ? entropy : bench.scores.worst_token_surprise;
   return (
     <section id="top" className="grid-noise border-b hairline">
       <div className="shell grid gap-10 py-14 lg:grid-cols-[1.15fr_.85fr] lg:py-20">
@@ -203,11 +320,11 @@ function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => 
         </div>
         <div className="card self-end p-6 lg:p-8">
           <p className="eyebrow">Short answer</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">The simpler follow-up improved it.</h2>
-          <p className="mt-4 text-base leading-7 text-[#505955]">{bestNew.display_name} scored {format(bestNew.test_auroc)}, versus {format(previousBest.test_auroc)} for the previous best. It only needs the probabilities the model already emits.</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">{model === 'instruct' ? 'Full-distribution entropy nudged higher.' : 'The confidence tail stayed strongest.'}</h2>
+          <p className="mt-4 text-base leading-7 text-[#505955]">{model === 'instruct' ? `Top-3 token entropy scored ${format(entropy.test_auroc)}, versus ${format(confidenceTail.test_auroc)} for top-3 selected-token surprise.` : `Worst-token surprise scored ${format(featured.test_auroc)}. Top-3 entropy reached ${format(entropy.test_auroc)} and did not improve this Base run.`}</p>
           <div className="mt-6 border-t hairline pt-5">
             <p className="text-sm font-semibold">How to read the score</p>
-            <div className="relative mt-3 h-2 bg-[#ded9cf]"><span className="absolute left-1/2 top-[-5px] h-4 w-px bg-[#69716d]" /><span className="absolute top-0 h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (bestNew.test_auroc - .5) * 200)}%` }} /></div>
+            <div className="relative mt-3 h-2 bg-[#ded9cf]"><span className="absolute left-1/2 top-[-5px] h-4 w-px bg-[#69716d]" /><span className="absolute top-0 h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (featured.test_auroc - .5) * 200)}%` }} /></div>
             <div className="mt-2 flex justify-between text-xs text-[#69716d]"><span>0.5 · chance</span><span>1.0 · perfect ranking</span></div>
           </div>
           <p className="mt-5 text-xs leading-5 text-[#69716d]">Exploratory follow-up: this 50-question test has now informed the project, so the result needs confirmation on fresh questions.</p>
@@ -225,13 +342,13 @@ function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => 
 function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: () => void }) {
   const example = predictions[model].find((item) => item.id === 'q002') ?? predictions[model][0];
   const bench = benchmarks[model];
-  const tail = example.confidences
-    .map((confidence, index) => ({ confidence, token: example.token_pieces[index], surprise: -Math.log(Math.max(confidence, 1e-12)) }))
-    .sort((left, right) => right.surprise - left.surprise)
+  const tail = example.token_entropies
+    .map((entropy, index) => ({ entropy, token: example.token_pieces[index] }))
+    .sort((left, right) => right.entropy - left.entropy)
     .slice(0, 3);
   const scores: Array<{ key: FeatureKey; plain: string }> = [
+    { key: 'token_entropy_top3', plain: 'Full-distribution uncertainty at the three shakiest tokens' },
     { key: 'top3_token_surprise', plain: 'Average surprise of the three shakiest tokens' },
-    { key: 'confidence_variance_mean', plain: 'How much confidence jumps around' },
     { key: 'crcv_mean', plain: 'Confidence × hidden-state movement (CRCV)' },
   ];
   return (
@@ -239,18 +356,18 @@ function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: (
       <section className="shell py-16">
         <div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]">
           <div>
-            <p className="eyebrow">The improved score, four steps</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Focus on the model’s three shakiest tokens.</h2>
-            <p className="mt-5 max-w-lg text-base leading-7 text-[#69716d]">The detector still does not fact-check. It converts each selected-token probability into surprise, keeps the three largest values, and averages them.</p>
+            <p className="eyebrow">The newest input point, four steps</p>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Measure the whole token decision.</h2>
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#69716d]">Confidence watches only the winning token. Entropy also asks how much probability remains spread across all 151,935 alternatives, then keeps the three most uncertain decisions.</p>
           </div>
           <div className="overview-flow" aria-label="Simplified detector flow">
             <OverviewStep number="1" label="Ask" value={example.question} note="The question is tokenized and passes through all 24 layers." />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="2" label="Watch confidence" value={`${example.confidences.length} token probabilities`} note={`From ${format(Math.min(...example.confidences), 3)} to ${format(Math.max(...example.confidences), 3)} in this answer.`} />
+            <OverviewStep number="2" label="Read logits" value="151,936 choices per token" note="Softmax turns every vocabulary logit into a probability." />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="3" label="Keep the top 3" value={tail.map((item) => JSON.stringify(item.token)).join(' · ')} note={tail.map((item) => `−ln(${format(item.confidence, 3)})=${format(item.surprise, 3)}`).join(' · ')} />
+            <OverviewStep number="3" label="Keep the top 3 entropies" value={tail.map((item) => JSON.stringify(item.token)).join(' · ')} note={tail.map((item) => `e=${format(item.entropy, 3)}`).join(' · ')} />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="4" label="Average" value={format(example.features.top3_token_surprise, 3)} note="Higher means the answer contained a shakier confidence tail." accent />
+            <OverviewStep number="4" label="Average" value={format(example.features.token_entropy_top3, 3)} note="Higher means the answer contained a more diffuse uncertainty tail." accent />
           </div>
         </div>
       </section>
@@ -259,14 +376,14 @@ function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: (
         <div className="shell grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
           <div>
             <p className="eyebrow">What the 50 unseen questions said</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">The confidence tail won this round.</h2>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">More input points, one honest leaderboard.</h2>
             <p className="mt-5 max-w-lg leading-7 text-[#69716d]">Higher AUROC means a score more often ranks a wrong answer above a correct one. Chance is 0.500. This is a small experiment, so treat the ranking as a lead—not a verdict.</p>
             <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Open the evidence and calculations <ArrowRight size={18} /></button>
           </div>
           <div className="space-y-5 self-center">
             {scores.map(({ key, plain }) => {
               const value = bench.scores[key].test_auroc;
-              return <div key={key}><div className="mb-2 flex items-end justify-between gap-4"><div><p className="font-semibold">{plain}</p><p className="mt-1 text-xs text-[#69716d]">{key === 'top3_token_surprise' ? 'new simple candidate' : key === 'crcv_mean' ? 'original proposed detector' : 'previous best'}</p></div><span className="mono text-2xl font-semibold">{format(value)}</span></div><div className="relative h-2 bg-[#d5d0c6]"><span className="absolute left-1/2 top-[-3px] h-4 w-px bg-[#69716d]" /><span className="absolute h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (value - .5) * 200)}%` }} /></div></div>;
+              return <div key={key}><div className="mb-2 flex items-end justify-between gap-4"><div><p className="font-semibold">{plain}</p><p className="mt-1 text-xs text-[#69716d]">{key === 'token_entropy_top3' ? 'new full-distribution signal' : key === 'crcv_mean' ? 'original proposed detector' : 'previous confidence-tail signal'}</p></div><span className="mono text-2xl font-semibold">{format(value)}</span></div><div className="relative h-2 bg-[#d5d0c6]"><span className="absolute left-1/2 top-[-3px] h-4 w-px bg-[#69716d]" /><span className="absolute h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (value - .5) * 200)}%` }} /></div></div>;
             })}
           </div>
         </div>
@@ -281,16 +398,21 @@ function OverviewStep({ number, label, value, note, accent = false }: { number: 
 
 function Results({ model }: { model: ModelKind }) {
   const bench = benchmarks[model];
-  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('top3_token_surprise');
+  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('token_entropy_top3');
+  const [metricFilter, setMetricFilter] = useState<'all' | MetricDefinition['group']>('all');
   const leaderboard = [...metricKeys].sort((left, right) => bench.scores[right].test_auroc - bench.scores[left].test_auroc);
+  const visibleLeaderboard = leaderboard.filter((key) => metricFilter === 'all' || metricDefinitions[key].group === metricFilter);
   return (
     <section id="results" className="shell py-18">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">Benchmark leaderboard</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Nine small scores, ranked.</h2>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">{metricKeys.length} fast scores, ranked.</h2>
         </div>
         <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC asks: if we draw one wrong and one correct answer, how often does the metric assign the wrong answer a higher score? Select any row to inspect its exact formula.</p>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Metric family filter">
+        {(['all', 'distribution', 'confidence', 'coupled', 'hidden', 'control'] as const).map((group) => <button key={group} onClick={() => setMetricFilter(group)} className={`focus-ring px-3 py-2 text-xs font-semibold capitalize ${metricFilter === group ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{group === 'all' ? `All ${metricKeys.length}` : group}</button>)}
       </div>
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[920px] border-collapse text-left">
@@ -298,13 +420,14 @@ function Results({ model }: { model: ModelKind }) {
             <tr><th className="px-4 py-4">Rank</th><th className="px-4 py-4">Metric</th><th className="px-4 py-4">Test AUROC</th><th className="px-4 py-4">95% CI</th><th className="px-4 py-4">Calibration</th><th className="px-4 py-4">Macro-F1</th><th className="px-4 py-4">Formula</th></tr>
           </thead>
           <tbody>
-            {leaderboard.map((key, index) => {
+            {visibleLeaderboard.map((key) => {
               const metric = bench.scores[key];
+              const index = leaderboard.indexOf(key);
               const scoreWidth = `${Math.max(0, Math.min(100, metric.test_auroc * 100))}%`;
               return (
                 <tr key={key} className={`border-t hairline align-middle ${selectedMetric === key ? 'bg-[#fff1ec]' : ''}`}>
                   <td className="mono px-4 py-5 text-[#69716d]">#{index + 1}</td>
-                  <td className="px-4 py-5 font-semibold">{metric.display_name}{newMetricKeys.includes(key) && <span className="ml-2 bg-[#e5f1eb] px-2 py-1 text-[10px] uppercase text-[#236349]">new</span>}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[10px] uppercase text-[#9e321e]">original</span>}</td>
+                  <td className="px-4 py-5 font-semibold">{metric.display_name}{newMetricKeys.includes(key) && <span className="ml-2 bg-[#e5f1eb] px-2 py-1 text-[10px] uppercase text-[#236349]">new</span>}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[10px] uppercase text-[#9e321e]">original</span>}<span className="ml-2 text-[10px] uppercase text-[#69716d]">{metricDefinitions[key].group}</span></td>
                   <td className="px-4 py-5"><div className="flex items-center gap-3"><span className="mono w-12 font-semibold">{format(metric.test_auroc)}</span><div className="h-1.5 w-24 bg-[#e7e2d8]"><div className="h-full bg-[#df4c2f]" style={{ width: scoreWidth }} /></div></div></td>
                   <td className="mono px-4 py-5 text-sm text-[#69716d]">{format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</td>
                   <td className="mono px-4 py-5">{format(metric.calibration_auroc)}</td>
@@ -318,11 +441,11 @@ function Results({ model }: { model: ModelKind }) {
       </div>
       <MetricGuide model={model} selected={selectedMetric} onSelect={setSelectedMetric} />
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <Insight icon={<Gauge size={20} />} label="Top-3 threshold" value={format(bench.scores.top3_token_surprise.threshold, 4)} text="Chosen only on the 50 calibration questions by maximum macro-F1." />
-        <Insight icon={<WarningCircle size={20} />} label="Gain vs previous best" value={`+${format(bench.improvement_comparison.test_auroc_difference)}`} text={`Paired 95% interval ${format(bench.improvement_comparison.test_auroc_difference_ci_95[0])} to ${format(bench.improvement_comparison.test_auroc_difference_ci_95[1])}; it includes zero, so the gain is not yet secure.`} />
+        <Insight icon={<Gauge size={20} />} label="Entropy threshold" value={format(bench.scores.token_entropy_top3.threshold, 4)} text="Chosen only on the 50 calibration questions by maximum macro-F1." />
+        <Insight icon={<WarningCircle size={20} />} label="Entropy vs surprise" value={`${bench.primitive_comparison.test_auroc_difference >= 0 ? '+' : ''}${format(bench.primitive_comparison.test_auroc_difference)}`} text={`Paired 95% interval ${format(bench.primitive_comparison.test_auroc_difference_ci_95[0])} to ${format(bench.primitive_comparison.test_auroc_difference_ci_95[1])}; the small difference is uncertain.`} />
         <Insight icon={<BookOpenText size={20} />} label="Operational label" value={`${bench.test_hallucinations}/${bench.test_examples}`} text="Wrong means no normalized accepted answer appeared. This is transparent, but imperfect." />
       </div>
-      <p className="mt-5 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">This is an exploratory iteration. On the Instruct run, the top-3 rule was favored by the calibration split among three simple confidence-tail ideas, but this same held-out set has now been inspected. A fresh benchmark is required before treating 0.817 as a confirmed estimate.</p>
+      <p className="mt-5 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">This is an exploratory iteration. Top-3 entropy led the new primitive signals on Instruct calibration, but the held-out set has now been inspected repeatedly and the Base model did not improve. A fresh benchmark is required before treating 0.825 as confirmed.</p>
     </section>
   );
 }
@@ -333,11 +456,9 @@ function MetricGuide({ model, selected, onSelect }: { model: ModelKind; selected
   const example = workedExample(selected, prediction);
   return (
     <div className="card mt-5 overflow-hidden">
-      <div className="border-b hairline bg-[#eeeae1] p-4">
-        <p className="eyebrow">Formula dictionary · choose a metric</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {metricKeys.map((key) => <button key={key} onClick={() => onSelect(key)} className={`focus-ring px-3 py-2 text-xs font-semibold ${selected === key ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{metricShort[key]}</button>)}
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b hairline bg-[#eeeae1] p-4">
+        <div><p className="eyebrow">One question, every metric</p><p className="mt-2 text-sm text-[#505955]">Use the same {prediction.id} token trace to compare raw inputs, substitutions, and outputs.</p></div>
+        <label className="text-xs font-semibold text-[#69716d]">Featured metric<select value={selected} onChange={(event) => onSelect(event.target.value as FeatureKey)} className="focus-ring ml-2 border hairline bg-white px-3 py-2 text-[#18211d]">{metricKeys.map((key) => <option key={key} value={key}>{metricShort[key]}</option>)}</select></label>
       </div>
       <div className="grid lg:grid-cols-[.8fr_1.2fr]">
         <div className="border-b hairline p-5 lg:border-b-0 lg:border-r md:p-7">
@@ -355,6 +476,16 @@ function MetricGuide({ model, selected, onSelect }: { model: ModelKind; selected
             <div className="bg-[#f4f1ea] p-4"><p className="eyebrow">Substitution</p><p className="mono mt-2 break-words text-sm leading-6">{example.arithmetic}</p></div>
           </div>
           <div className="mt-4 flex items-end justify-between border-t hairline pt-4"><span className="text-sm text-[#69716d]">Saved answer-level score</span><strong className="mono text-2xl">{selected === 'answer_tokens' ? example.score : format(example.score, 6)}</strong></div>
+        </div>
+      </div>
+      <div className="border-t hairline bg-[#f4f1ea] p-4 md:p-6">
+        <div className="mb-4"><p className="eyebrow">All {metricKeys.length} calculations for {prediction.id}</p><p className="mt-2 text-sm text-[#69716d]">Expand any row. Every displayed score is reconstructed from the saved token trace below it.</p></div>
+        <div className="columns-1 gap-2 lg:columns-2">
+          {metricKeys.map((key) => {
+            const item = workedExample(key, prediction);
+            const itemDefinition = metricDefinitions[key];
+            return <details key={key} className="mb-2 break-inside-avoid border hairline bg-white" open={key === selected} onToggle={(event) => { if (event.currentTarget.open) onSelect(key); }}><summary className="focus-ring flex cursor-pointer items-center justify-between gap-3 p-4"><span><span className="font-semibold">{benchmarks[model].scores[key].display_name}</span><span className="ml-2 text-[10px] uppercase text-[#69716d]">{itemDefinition.group}</span></span><strong className="mono">{key === 'answer_tokens' ? item.score : format(item.score, 5)}</strong></summary><div className="border-t hairline p-4 text-sm"><p className="mono leading-6 text-[#9e321e]">{itemDefinition.formula}</p><p className="mt-3 text-[#505955]">{itemDefinition.plain}</p><div className="mt-3 bg-[#f4f1ea] p-3"><p className="eyebrow">Inputs</p><p className="mono mt-2 break-words text-xs leading-6">{item.inputs}</p></div><div className="mt-2 bg-[#f4f1ea] p-3"><p className="eyebrow">Substitution</p><p className="mono mt-2 break-words text-xs leading-6">{item.arithmetic}</p></div></div></details>;
+          })}
         </div>
       </div>
     </div>
@@ -387,7 +518,7 @@ function QuestionLab({ model }: { model: ModelKind }) {
         <div className="mb-8">
           <p className="eyebrow">Question lab</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Audit every arithmetic step.</h2>
-          <p className="mt-3 max-w-2xl text-[#69716d]">Choose any saved generation. The calculation tape reconstructs the published score from raw token probabilities and 896-dimensional hidden-state movement.</p>
+          <p className="mt-3 max-w-2xl text-[#69716d]">Choose any saved generation. Inspect selected-token confidence, top-two margin, full-distribution entropy, and 896-dimensional hidden-state signals—then reconstruct every published score.</p>
         </div>
         <div className="grid gap-5 xl:grid-cols-[340px_1fr]">
           <aside className="card overflow-hidden">
@@ -438,9 +569,10 @@ function QuestionDetail({ prediction }: { prediction: Prediction }) {
         <div><p className="eyebrow mb-2">Accepted answer aliases</p><p className="leading-7">{prediction.answers.join(' · ')}</p></div>
       </div>
       <ModelJourney prediction={prediction} />
-      <div className="grid grid-cols-2 gap-px bg-[#d7d3c9] sm:grid-cols-3 xl:grid-cols-6">
-        {metricKeys.map((key) => <div className="bg-[#fffdf8] px-3 py-4" key={key}><p className="text-[11px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? prediction.features[key] : format(prediction.features[key], 4)}</p></div>)}
+      <div className="grid grid-cols-2 gap-px bg-[#d7d3c9] sm:grid-cols-4">
+        {(['token_entropy_top3', 'top3_token_surprise', 'token_ambiguity_top3', 'crcv_mean'] as FeatureKey[]).map((key) => <div className="bg-[#fffdf8] px-3 py-4" key={key}><p className="text-[11px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{format(prediction.features[key], 4)}</p></div>)}
       </div>
+      <details className="border-x border-b hairline bg-[#f7f4ed] p-4"><summary className="focus-ring cursor-pointer text-sm font-semibold">Show all {metricKeys.length} scores for this answer</summary><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{metricKeys.map((key) => <div className="bg-white px-3 py-4" key={key}><p className="text-[11px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? prediction.features[key] : format(prediction.features[key], 4)}</p></div>)}</div></details>
       <QuestionMetricAudit prediction={prediction} />
 
       <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
@@ -470,7 +602,7 @@ function QuestionMetricAudit({ prediction }: { prediction: Prediction }) {
     <details className="mt-4 border hairline bg-[#f7f4ed]">
       <summary className="focus-ring cursor-pointer px-4 py-3 text-sm font-semibold">Show how any score is calculated for this question</summary>
       <div className="border-t hairline p-4">
-        <div className="flex flex-wrap gap-2">{metricKeys.map((key) => <button key={key} onClick={() => setSelected(key)} className={`focus-ring px-3 py-2 text-xs font-semibold ${selected === key ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{metricShort[key]}</button>)}</div>
+        <label className="text-xs font-semibold text-[#69716d]">Metric<select value={selected} onChange={(event) => setSelected(event.target.value as FeatureKey)} className="focus-ring ml-2 border hairline bg-white px-3 py-2 text-[#18211d]">{metricKeys.map((key) => <option key={key} value={key}>{metricShort[key]}</option>)}</select></label>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <div className="bg-white p-4"><p className="eyebrow">Formula</p><p className="mono mt-2 break-words text-sm leading-6">{definition.formula}</p></div>
           <div className="bg-white p-4"><p className="eyebrow">This answer’s inputs</p><p className="mono mt-2 break-words text-xs leading-6">{example.inputs}</p></div>
@@ -581,11 +713,13 @@ function LiveLab({ model }: { model: ModelKind }) {
   const [status, setStatus] = useState('Idle — no model has been downloaded.');
   const [progress, setProgress] = useState(0);
   const [tokens, setTokens] = useState<LiveToken[]>([]);
-  const [result, setResult] = useState<{ answer: string; features: Features; elapsedMs: number } | null>(null);
+  const [result, setResult] = useState<{ answer: string; features: Features; elapsedMs: number; qualityWarning: string | null } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [question, setQuestion] = useState('What is the capital of France?');
   const webgpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
+  const [runtimeChoice, setRuntimeChoice] = useState<'auto' | 'webgpu' | 'wasm'>('auto');
+  const runtime = runtimeChoice === 'auto' ? (webgpu ? 'webgpu' : 'wasm') : runtimeChoice;
 
   useEffect(() => () => workerRef.current?.terminate(), []);
 
@@ -599,10 +733,16 @@ function LiveLab({ model }: { model: ModelKind }) {
       if (message.type === 'status') setStatus(`${message.phase} — ${message.detail}`);
       if (message.type === 'progress') { setProgress(message.progress); setStatus(`Downloading ${message.file}`); }
       if (message.type === 'token') setTokens((current) => [...current, message.token]);
-      if (message.type === 'result') { setResult(message); setBusy(false); setStatus('Complete — all arithmetic ran locally.'); }
+      if (message.type === 'result') {
+        setResult(message);
+        setBusy(false);
+        setStatus(message.qualityWarning
+          ? 'Complete — generation failed the repetition check.'
+          : 'Complete — generation and metric replay agreed.');
+      }
       if (message.type === 'error') { setError(message.message); setBusy(false); setStatus('Stopped'); }
     };
-    worker.postMessage({ type: 'run', model, question, runtime: webgpu ? 'webgpu' : 'wasm', maxNewTokens: 24 });
+    worker.postMessage({ type: 'run', model, question, runtime, maxNewTokens: 24 });
   };
 
   return (
@@ -611,25 +751,36 @@ function LiveLab({ model }: { model: ModelKind }) {
         <div>
           <p className="eyebrow">Local inference</p>
           <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">No server. Real hidden states.</h2>
-          <p className="mt-5 leading-7 text-[#69716d]">The page fetches the public quantized ONNX model, exposes the final 896-value state already inside its graph, and runs greedy generation in a worker. Your question and trace never leave the browser.</p>
+          <p className="mt-5 leading-7 text-[#69716d]">The page fetches the public quantized ONNX model, exposes the final 896-value state already inside its graph, and runs greedy generation in a worker. It then replays the exact chosen tokens to extract every signal. Your question and trace never leave the browser.</p>
           <div className="mt-6 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">
-            First run is large: roughly {webgpu ? '483 MB (q4f16)' : '750 MB (q4)'}. The patched model is cached when browser quota permits. {webgpu ? 'WebGPU is available.' : 'WebGPU is unavailable, so the slower WASM path will be used.'}
+            First run is large: roughly {runtime === 'webgpu' ? '483 MB with shader-f16, otherwise 750 MB compatibility mode' : '750 MB (q4)'}. The patched model is cached when browser quota permits. {webgpu ? 'This browser reports WebGPU support; the worker separately checks float16 shader support.' : 'WebGPU is unavailable, so use WASM.'}
           </div>
           <ol className="mt-7 space-y-4 text-sm">
-            <Step number="01" text="Download and patch only the ONNX output declaration." />
-            <Step number="02" text="At each step, read p(token) and the final hidden state." />
-            <Step number="03" text="Compute normalized movement, coupling, and rolling CRCV." />
+            <Step number="01" text="Generate with the library's standard deterministic decoding path." />
+            <Step number="02" text="Replay those exact tokens; stop if even one chosen token disagrees." />
+            <Step number="03" text="Read confidence, margin, entropy, and final-state movement, then compute every score." />
           </ol>
         </div>
         <div className="card p-5 md:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b hairline pb-5"><div><p className="eyebrow">Browser console</p><p className="mt-1 font-semibold">Qwen2.5-0.5B {model === 'instruct' ? 'Instruct' : 'Base'} · {webgpu ? 'WebGPU' : 'WASM'}</p></div><span className="mono bg-[#eeeae1] px-3 py-2 text-xs">exact CRCV</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b hairline pb-5"><div><p className="eyebrow">Browser console</p><p className="mt-1 font-semibold">Qwen2.5-0.5B {model === 'instruct' ? 'Instruct' : 'Base'} · {runtime.toUpperCase()}</p></div><span className="mono bg-[#eeeae1] px-3 py-2 text-xs">generate + verified replay</span></div>
+          <fieldset className="mt-5"><legend className="eyebrow">Runtime</legend><div className="mt-2 grid grid-cols-3 gap-2">{(['auto', 'webgpu', 'wasm'] as const).map((choice) => <button type="button" key={choice} onClick={() => setRuntimeChoice(choice)} disabled={busy || (choice === 'webgpu' && !webgpu)} className={`focus-ring border px-3 py-2 text-xs font-semibold uppercase ${runtimeChoice === choice ? 'border-[#18211d] bg-[#18211d] text-white' : 'hairline bg-white disabled:cursor-not-allowed disabled:opacity-40'}`}>{choice}</button>)}</div><p className="mt-2 text-xs text-[#69716d]">Auto currently resolves to {webgpu ? 'WebGPU' : 'WASM'}. Force WASM to compare the fallback path.</p></fieldset>
           <label className="mt-6 block"><span className="eyebrow">Question</span><textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} className="focus-ring mt-2 w-full resize-y border hairline bg-white p-3 leading-6" /></label>
           <button onClick={run} disabled={busy || !question.trim()} className="focus-ring mt-4 inline-flex w-full items-center justify-center gap-2 bg-[#df4c2f] px-5 py-3 font-bold text-white"><Play size={18} weight="fill" />{busy ? 'Working locally…' : 'Load model and calculate'}</button>
           <div className="mt-5 border hairline bg-[#f7f4ed] p-4" aria-live="polite"><div className="flex justify-between gap-3 text-xs"><span className="truncate">{status}</span><span className="mono">{progress ? pct(progress / 100) : ''}</span></div>{busy && <div className="mt-3 h-1.5 bg-[#ddd8ce]"><div className="h-full bg-[#df4c2f] transition-all" style={{ width: `${progress}%` }} /></div>}</div>
           {error && <div className="mt-4 flex gap-3 bg-[#fbe9e2] p-4 text-sm text-[#8d2e1d]"><WarningCircle className="shrink-0" size={20} /><span>{error}</span></div>}
           {!busy && !result && !error && <div className="mt-5 py-8 text-center text-sm text-[#69716d]">A live token tape will appear here after you start.</div>}
-          {tokens.length > 0 && <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-xs"><thead className="text-[#69716d]"><tr><th className="pb-2">token</th><th className="pb-2">confidence</th><th className="pb-2">hidden shift</th><th className="pb-2">coupling</th></tr></thead><tbody>{tokens.map((token, index) => <tr key={`${token.tokenId}-${index}`} className="border-t hairline"><td className="mono py-2">{JSON.stringify(token.token)}</td><td className="mono py-2">{format(token.confidence, 5)}</td><td className="mono py-2">{token.hiddenShift === null ? '—' : format(token.hiddenShift, 5)}</td><td className="mono py-2">{token.hiddenShift === null ? '—' : format(token.confidence * token.hiddenShift, 5)}</td></tr>)}</tbody></table></div>}
-          {result && <div className="mt-5 border-t hairline pt-5"><p className="eyebrow">Generated answer</p><p className="mt-2 leading-7">{result.answer}</p><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{metricKeys.map((key) => <div key={key} className="bg-[#eeeae1] p-3"><p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? result.features[key] : format(result.features[key], 4)}</p></div>)}</div><p className="mono mt-3 text-xs text-[#69716d]">{format(result.elapsedMs / 1000, 2)} s after model load</p></div>}
+          {tokens.length > 0 && <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs"><thead className="text-[#69716d]"><tr><th className="pb-2">token</th><th className="pb-2">confidence</th><th className="pb-2">top-2 margin</th><th className="pb-2">entropy</th><th className="pb-2">L2 shift</th><th className="pb-2">cosine change</th><th className="pb-2">hidden RMS</th><th className="pb-2">coupling</th></tr></thead><tbody>{tokens.map((token, index) => <tr key={`${token.tokenId}-${index}`} className="border-t hairline"><td className="mono py-2 pr-4">{JSON.stringify(token.token)}</td><td className="mono py-2 pr-4">{format(token.confidence, 5)}</td><td className="mono py-2 pr-4">{format(token.margin, 5)}</td><td className="mono py-2 pr-4">{format(token.entropy, 5)}</td><td className="mono py-2 pr-4">{token.hiddenShift === null ? '—' : format(token.hiddenShift, 5)}</td><td className="mono py-2 pr-4">{token.hiddenCosineDistance === null ? '—' : format(token.hiddenCosineDistance, 5)}</td><td className="mono py-2 pr-4">{format(token.hiddenNorm, 5)}</td><td className="mono py-2">{token.hiddenShift === null ? '—' : format(token.confidence * token.hiddenShift, 5)}</td></tr>)}</tbody></table></div>}
+          {result && <div className="mt-5 border-t hairline pt-5">
+            <div className={`p-4 text-sm leading-6 ${result.qualityWarning ? 'bg-[#fbe9e2] text-[#8d2e1d]' : 'bg-[#e5efe8] text-[#245537]'}`}>
+              <p className="font-semibold">{result.qualityWarning ? 'Generation integrity: warning' : 'Generation integrity: passed'}</p>
+              <p>{result.qualityWarning ?? 'Standard generation and signal replay selected the same token at every step; no repeated-trigram degeneration was detected.'}</p>
+              {result.qualityWarning && <p className="mt-1 font-semibold">Do not interpret the scores below as factuality evidence for this answer.</p>}
+            </div>
+            <p className="eyebrow mt-5">Generated answer</p><p className="mt-2 leading-7">{result.answer || 'No text was generated.'}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{(['token_entropy_top3', 'top3_token_surprise', 'token_ambiguity_top3', 'crcv_mean'] as FeatureKey[]).map((key) => <div key={key} className="bg-[#eeeae1] p-3"><p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{format(result.features[key], 4)}</p></div>)}</div>
+            <details className="mt-4 border hairline bg-white p-4"><summary className="focus-ring cursor-pointer text-sm font-semibold">Show all {metricKeys.length} live scores and formulas</summary><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{metricKeys.map((key) => <div key={key} className="bg-[#eeeae1] p-3"><p className="text-[10px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? result.features[key] : format(result.features[key], 4)}</p><p className="mono mt-2 text-[9px] leading-4 text-[#69716d]">{metricDefinitions[key].formula}</p></div>)}</div></details>
+            <p className="mono mt-3 text-xs text-[#69716d]">{format(result.elapsedMs / 1000, 2)} s after model load · generation plus verified signal replay</p>
+          </div>}
         </div>
       </div>
     </section>
@@ -639,7 +790,7 @@ function LiveLab({ model }: { model: ModelKind }) {
 function Step({ number, text }: { number: string; text: string }) { return <li className="flex items-start gap-4"><span className="mono text-[#df4c2f]">{number}</span><span>{text}</span></li>; }
 
 function MethodNote() {
-  return <section className="border-t hairline bg-[#eae6dc] py-12"><div className="shell grid gap-8 md:grid-cols-3"><div><p className="eyebrow">State movement</p><p className="mono mt-3 text-sm leading-7">r<sub>t</sub> = ‖h<sub>t</sub> − h<sub>t−1</sub>‖₂ / (‖h<sub>t−1</sub>‖₂ + 10⁻⁸)</p></div><div><p className="eyebrow">Coupling</p><p className="mono mt-3 text-sm leading-7">s<sub>t</sub> = c<sub>t</sub> · r<sub>t</sub></p><p className="mt-1 text-sm text-[#69716d]">Confidence multiplied by state movement.</p></div><div><p className="eyebrow">CRCV</p><p className="mt-3 text-sm leading-7">Sample standard deviation of s over each complete trailing window, W = 5.</p></div></div></section>;
+  return <section className="border-t hairline bg-[#eae6dc] py-12"><div className="shell grid gap-8 md:grid-cols-2 lg:grid-cols-4"><div><p className="eyebrow">Token uncertainty</p><p className="mono mt-3 text-sm leading-7">c<sub>t</sub> = p(top token)<br />margin = p₁ − p₂<br />entropy = −Σp ln p / ln|V|</p></div><div><p className="eyebrow">State movement</p><p className="mono mt-3 text-sm leading-7">r<sub>t</sub> = ‖h<sub>t</sub> − h<sub>t−1</sub>‖₂ / (‖h<sub>t−1</sub>‖₂ + 10⁻⁸)</p></div><div><p className="eyebrow">Coupling</p><p className="mono mt-3 text-sm leading-7">s<sub>t</sub> = c<sub>t</sub> · r<sub>t</sub></p><p className="mt-1 text-sm text-[#69716d]">Confidence multiplied by state movement.</p></div><div><p className="eyebrow">CRCV</p><p className="mt-3 text-sm leading-7">Sample standard deviation of s over each complete trailing window, W = 5.</p></div></div></section>;
 }
 
 export default function App() {

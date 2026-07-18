@@ -32,4 +32,22 @@ describe('browser metrics mirror the Python implementation', () => {
     expect(result.worst_token_surprise).toBeCloseTo(Math.log(8));
     expect(result.surprise_spread).toBeGreaterThan(0);
   });
+
+  it('summarizes full-distribution and hidden-state primitives', () => {
+    const result = computeFeatures(
+      [0.8, 0.4, 0.2],
+      [null, 0.3, 0.6],
+      5,
+      {
+        tokenMargins: [0.7, 0.2, 0.05],
+        tokenEntropies: [0.1, 0.4, 0.7],
+        hiddenCosineDistances: [null, 0.02, 0.08],
+        hiddenNorms: [1, 2, 3],
+      },
+    );
+    expect(result.token_ambiguity_mean).toBeCloseTo((0.3 + 0.8 + 0.95) / 3);
+    expect(result.token_entropy_top3).toBeCloseTo(0.4);
+    expect(result.hidden_cosine_max).toBeCloseTo(0.08);
+    expect(result.hidden_norm_variability).toBeCloseTo(1);
+  });
 });

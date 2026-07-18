@@ -35,6 +35,21 @@ SCORES = {
     "top3_token_surprise": "Top-3 token surprise",
     "worst_token_surprise": "Worst-token surprise",
     "surprise_spread": "Token-surprise spread",
+    "top4_token_surprise": "Top-4 token surprise",
+    "skip_first_top3_surprise": "Top-3 surprise after first token",
+    "surprise_shift_top3": "Top-3 surprise × hidden shift",
+    "uncertainty_shift_top3": "Top-3 uncertainty × hidden shift",
+    "token_entropy_top3": "Top-3 token entropy",
+    "token_entropy_mean": "Mean token entropy",
+    "token_entropy_max": "Maximum token entropy",
+    "token_ambiguity_top3": "Top-3 token ambiguity",
+    "token_ambiguity_mean": "Mean token ambiguity",
+    "token_ambiguity_max": "Maximum token ambiguity",
+    "hidden_cosine_mean": "Mean hidden cosine change",
+    "hidden_cosine_max": "Maximum hidden cosine change",
+    "hidden_cosine_top3": "Top-3 hidden cosine change",
+    "hidden_norm_mean": "Mean hidden-state RMS norm",
+    "hidden_norm_variability": "Hidden-state norm variability",
 }
 
 
@@ -94,6 +109,7 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
 
     comparison = None
     improvement_comparison = None
+    primitive_comparison = None
     test_labels = [int(row["is_hallucination"]) for row in test]
     if len(set(test_labels)) == 2:
         difference, difference_low, difference_high = bootstrap_auroc_difference_ci(
@@ -129,6 +145,18 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
             "test_auroc_difference": improvement,
             "test_auroc_difference_ci_95": [improvement_low, improvement_high],
         }
+        primitive, primitive_low, primitive_high = bootstrap_auroc_difference_ci(
+            test_labels,
+            [float(row["features"]["token_entropy_top3"]) for row in test],
+            [float(row["features"]["top3_token_surprise"]) for row in test],
+            seed=20260720,
+        )
+        primitive_comparison = {
+            "name": "top-3 token entropy minus top-3 token surprise",
+            "baseline_score_key": "top3_token_surprise",
+            "test_auroc_difference": primitive,
+            "test_auroc_difference_ci_95": [primitive_low, primitive_high],
+        }
 
     return {
         "label_definition": "1 = generated answer did not contain any normalized gold alias",
@@ -139,21 +167,22 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
         "scores": results,
         "paired_comparison": comparison,
         "improvement_comparison": improvement_comparison,
+        "primitive_comparison": primitive_comparison,
     }
 
 
 def interpretation(metrics: dict[str, Any]) -> str:
-    candidate = metrics["scores"]["top3_token_surprise"]
+    candidate = metrics["scores"]["token_entropy_top3"]
     value = candidate["test_auroc"]
     low, high = candidate["test_auroc_ci_95"]
     if value is None:
-        return "Top-3 token surprise AUROC is undefined because the held-out split contains only one label class."
+        return "Top-3 token entropy AUROC is undefined because the held-out split contains only one label class."
     if high < 0.5:
-        finding = "Top-3 token surprise was inversely associated with wrong answers on this test."
+        finding = "Top-3 token entropy was inversely associated with wrong answers on this test."
     elif low > 0.5:
-        finding = "Top-3 token surprise separated wrong from correct answers better than chance on this test."
+        finding = "Top-3 token entropy separated wrong from correct answers better than chance on this test."
     else:
-        finding = "Top-3 token surprise did not demonstrate better-than-chance separation on this small test."
+        finding = "Top-3 token entropy did not demonstrate better-than-chance separation on this small test."
     return f"{finding} Its held-out AUROC was {value:.3f} (bootstrap 95% CI {low:.3f}-{high:.3f})."
 
 
@@ -212,12 +241,21 @@ def render_report(metadata: dict[str, Any], metrics: dict[str, Any]) -> str:
                 if metrics["improvement_comparison"] is not None
                 else "The improvement comparison is undefined because the test split has one class."
             ),
+            (
+                "Top-3 token entropy minus top-3 token-surprise AUROC: "
+                f"{metrics['primitive_comparison']['test_auroc_difference']:.3f} "
+                f"(paired bootstrap 95% CI "
+                f"{metrics['primitive_comparison']['test_auroc_difference_ci_95'][0]:.3f} to "
+                f"{metrics['primitive_comparison']['test_auroc_difference_ci_95'][1]:.3f})."
+                if metrics["primitive_comparison"] is not None
+                else "The primitive-signal comparison is undefined because the test split has one class."
+            ),
             "",
             "## What this establishes",
             "",
-            "This is an exploratory follow-up on one tiny model, not a validated detector or an untouched confirmatory test.",
-            "The saved predictions include each answer, gold aliases, token confidences, hidden-state shifts, and aggregate scores.",
-            "The largest limitations are the 50-question held-out sample, one model/layer, greedy decoding, and lexical correctness labels.",
+            "This is an exploratory follow-up on one tiny checkpoint, not a validated detector or an untouched confirmatory test.",
+            "The saved predictions include each answer, gold aliases, token-distribution signals, hidden-state signals, and aggregate scores.",
+            "The largest limitations are the 50-question held-out sample, one architecture/layer, greedy decoding, and lexical correctness labels.",
             "A follow-up should manually audit label errors, repeat across seeds/models, and use a larger human-aligned benchmark.",
             "",
         ]
@@ -322,10 +360,18 @@ def main() -> None:
                 "token_pieces": trace.token_pieces,
                 "confidences": trace.confidences,
                 "hidden_shifts": trace.shifts,
+                "token_margins": trace.token_margins,
+                "token_entropies": trace.token_entropies,
+                "hidden_cosine_distances": trace.hidden_cosine_distances,
+                "hidden_norms": trace.hidden_norms,
                 "features": compute_features(
                     trace.confidences,
                     trace.shifts,
                     window=args.window,
+                    token_margins=trace.token_margins,
+                    token_entropies=trace.token_entropies,
+                    hidden_cosine_distances=trace.hidden_cosine_distances,
+                    hidden_norms=trace.hidden_norms,
                 ),
                 "elapsed_seconds": trace.elapsed_seconds,
             }

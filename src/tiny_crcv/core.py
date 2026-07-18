@@ -51,6 +51,10 @@ def compute_features(
     shifts: Sequence[float | None],
     *,
     window: int,
+    token_margins: Sequence[float] | None = None,
+    token_entropies: Sequence[float] | None = None,
+    hidden_cosine_distances: Sequence[float | None] | None = None,
+    hidden_norms: Sequence[float] | None = None,
 ) -> dict[str, float | int]:
     """Aggregate token-level signals into auditable answer-level scores.
 
@@ -59,6 +63,15 @@ def compute_features(
     """
     if len(confidences) != len(shifts):
         raise ValueError("confidences and shifts must have the same length")
+    optional_signals = {
+        "token_margins": token_margins,
+        "token_entropies": token_entropies,
+        "hidden_cosine_distances": hidden_cosine_distances,
+        "hidden_norms": hidden_norms,
+    }
+    for name, values in optional_signals.items():
+        if values is not None and len(values) != len(confidences):
+            raise ValueError(f"{name} must have the same length as confidences")
 
     valid_pairs = [
         (float(confidence), float(shift))
@@ -75,6 +88,31 @@ def compute_features(
     finite_confidences = [max(float(value), 1e-12) for value in confidences]
     token_surprises = [-math.log(value) for value in finite_confidences]
     largest_surprises = sorted(token_surprises, reverse=True)[:3]
+    valid_surprise_shift = [
+        token_surprises[index] * float(shift)
+        for index, shift in enumerate(shifts)
+        if shift is not None and math.isfinite(shift)
+    ]
+    valid_uncertainty_shift = [
+        (1.0 - finite_confidences[index]) * float(shift)
+        for index, shift in enumerate(shifts)
+        if shift is not None and math.isfinite(shift)
+    ]
+    margins = [float(value) for value in (token_margins or [])]
+    ambiguities = [1.0 - value for value in margins]
+    entropies = [float(value) for value in (token_entropies or [])]
+    cosine_distances = [
+        float(value)
+        for value in (hidden_cosine_distances or [])
+        if value is not None and math.isfinite(value)
+    ]
+    norms = [float(value) for value in (hidden_norms or [])]
+
+    def mean_or_zero(values: Sequence[float]) -> float:
+        return statistics.fmean(values) if values else 0.0
+
+    def top3_mean(values: Sequence[float]) -> float:
+        return mean_or_zero(sorted(values, reverse=True)[:3])
 
     return {
         "crcv_mean": statistics.fmean(crcv_windows),
@@ -85,8 +123,23 @@ def compute_features(
         "top3_token_surprise": statistics.fmean(largest_surprises)
         if largest_surprises
         else 0.0,
+        "top4_token_surprise": mean_or_zero(sorted(token_surprises, reverse=True)[:4]),
+        "skip_first_top3_surprise": top3_mean(token_surprises[1:]),
         "worst_token_surprise": max(token_surprises, default=0.0),
         "surprise_spread": sample_std(token_surprises),
+        "surprise_shift_top3": top3_mean(valid_surprise_shift),
+        "uncertainty_shift_top3": top3_mean(valid_uncertainty_shift),
+        "token_ambiguity_mean": mean_or_zero(ambiguities),
+        "token_ambiguity_max": max(ambiguities, default=0.0),
+        "token_ambiguity_top3": top3_mean(ambiguities),
+        "token_entropy_mean": mean_or_zero(entropies),
+        "token_entropy_max": max(entropies, default=0.0),
+        "token_entropy_top3": top3_mean(entropies),
+        "hidden_cosine_mean": mean_or_zero(cosine_distances),
+        "hidden_cosine_max": max(cosine_distances, default=0.0),
+        "hidden_cosine_top3": top3_mean(cosine_distances),
+        "hidden_norm_mean": mean_or_zero(norms),
+        "hidden_norm_variability": sample_std(norms),
         "answer_tokens": len(confidences),
     }
 
