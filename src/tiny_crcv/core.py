@@ -73,15 +73,20 @@ def compute_features(
     confidence_windows = rolling_sample_std(valid_confidences, window)
     shift_windows = rolling_sample_std(valid_shifts, window)
     finite_confidences = [max(float(value), 1e-12) for value in confidences]
+    token_surprises = [-math.log(value) for value in finite_confidences]
+    largest_surprises = sorted(token_surprises, reverse=True)[:3]
 
     return {
         "crcv_mean": statistics.fmean(crcv_windows),
         "crcv_max": max(crcv_windows),
         "confidence_variance_mean": statistics.fmean(confidence_windows),
         "shift_variance_mean": statistics.fmean(shift_windows),
-        "mean_nll": statistics.fmean(-math.log(value) for value in finite_confidences)
-        if finite_confidences
+        "mean_nll": statistics.fmean(token_surprises) if token_surprises else 0.0,
+        "top3_token_surprise": statistics.fmean(largest_surprises)
+        if largest_surprises
         else 0.0,
+        "worst_token_surprise": max(token_surprises, default=0.0),
+        "surprise_spread": sample_std(token_surprises),
         "answer_tokens": len(confidences),
     }
 

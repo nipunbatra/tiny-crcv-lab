@@ -1,6 +1,6 @@
 # Tiny CRCV benchmark report
 
-CRCV did not demonstrate better-than-chance separation on this small test. Its held-out AUROC was 0.508 (bootstrap 95% CI 0.328-0.677).
+Top-3 token surprise separated wrong from correct answers better than chance on this test. Its held-out AUROC was 0.728 (bootstrap 95% CI 0.574-0.858).
 
 ## Setup
 
@@ -20,16 +20,20 @@ CRCV did not demonstrate better-than-chance separation on this small test. Its h
 | Confidence variability | 0.598 | 0.442-0.768 | 0.451 | 0.215774 |
 | Hidden-shift variability | 0.540 | 0.365-0.705 | 0.532 | 0.215889 |
 | Answer length | 0.484 | 0.367-0.593 | 0.383 | 24 |
+| Top-3 token surprise | 0.728 | 0.574-0.858 | 0.667 | 1.45037 |
+| Worst-token surprise | 0.737 | 0.589-0.868 | 0.672 | 1.75567 |
+| Token-surprise spread | 0.666 | 0.502-0.819 | 0.601 | 0.527268 |
 
 The held-out set contained 19 incorrect and 31 correct generations.
 AUROC uses the predeclared direction 'higher score = more likely wrong'; 0.5 is chance.
 Thresholds were chosen only on the calibration split by maximum macro-F1.
 
 Primary CRCV minus confidence-variability AUROC: -0.090 (paired bootstrap 95% CI -0.228 to 0.044).
+Top-3 token surprise minus the previous-best original-score AUROC: 0.063 (paired bootstrap 95% CI -0.066 to 0.192).
 
 ## What this establishes
 
-This is a falsifiable smoke test of the document's coupling hypothesis on one tiny model, not a validated detector.
+This is an exploratory follow-up on one tiny model, not a validated detector or an untouched confirmatory test.
 The saved predictions include each answer, gold aliases, token confidences, hidden-state shifts, and aggregate scores.
 The largest limitations are the 50-question held-out sample, one model/layer, greedy decoding, and lexical correctness labels.
 A follow-up should manually audit label errors, repeat across seeds/models, and use a larger human-aligned benchmark.

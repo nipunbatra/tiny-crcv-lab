@@ -5,14 +5,16 @@ An inspectable experiment asking one question:
 > On short factual answers from a 0.49B open-weight model, does instability in
 > confidence × hidden-state movement predict which answers are wrong?
 
-**Result:** not convincingly in this small test. The proposed CRCV score reached
-0.594 AUROC, while a simpler confidence-variability score reached 0.777. The
-experiment is useful because it makes that negative result easy to inspect.
+**Result:** CRCV was not convincing, but a very small follow-up helped. Averaging
+the surprise of the three least-confident tokens reached 0.817 AUROC, versus
+0.777 for the previous-best confidence-variability score and 0.594 for CRCV.
+The paired improvement over 0.777 is uncertain, so this is a lead to retest—not
+a validated detector.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
 The default view explains the result in plain language; **Explore details**
-contains all 100 generations and arithmetic; **Run locally** performs inference
-inside the browser.
+contains a ranked benchmark, a formula dictionary with real inputs, and all 100
+generations; **Run locally** performs inference inside the browser.
 
 This is a research smoke test, not a production detector. It uses 100 fixed
 questions, calibrates score thresholds on 50, and reports results once on 50
@@ -63,6 +65,17 @@ Confidence variability, hidden-shift variability, token surprise, and answer
 length are evaluated as baselines. Correctness is an intentionally transparent
 lexical proxy: at least one normalized accepted answer must occur in the output.
 
+The follow-up adds three confidence-only summaries, with no learned classifier:
+
+- top-3 token surprise: the mean of the three largest `-ln(c_t)` values;
+- worst-token surprise: the largest `-ln(c_t)` value;
+- surprise spread: sample standard deviation of all `-ln(c_t)` values.
+
+On the Instruct run, top-3 surprise had the strongest calibration AUROC of these
+three candidates, so it is the designated follow-up score. Because the same
+50-question held-out set has now been inspected during iteration, its result is
+exploratory and must be confirmed on fresh questions.
+
 ## Reproduce
 
 The default model is
@@ -76,6 +89,14 @@ uv run pytest -q
 uv run tiny-crcv --overwrite
 uv run tiny-crcv --model Qwen/Qwen2.5-0.5B --prompt-style base \
   --output-dir outputs/qwen05b_base_100 --overwrite
+```
+
+The included raw token traces can be rescored after adding an answer-level
+formula without rerunning either model:
+
+```bash
+uv run python scripts/rescore_saved.py \
+  outputs/qwen05b_100 outputs/qwen05b_base_100
 ```
 
 For a quick end-to-end check before the full benchmark:
@@ -101,20 +122,25 @@ On the 50 held-out questions, 15 answers were labeled wrong and 35 correct.
 
 | Score | Held-out AUROC | Bootstrap 95% CI |
 |---|---:|---:|
+| Top-3 token surprise (follow-up) | **0.817** | **0.684–0.931** |
+| Token-surprise spread | 0.771 | 0.618–0.904 |
+| Worst-token surprise | 0.752 | 0.593–0.889 |
 | CRCV mean (predeclared primary) | 0.594 | 0.419–0.766 |
 | CRCV maximum (secondary) | 0.674 | 0.506–0.830 |
-| Confidence variability | **0.777** | **0.632–0.904** |
+| Confidence variability | 0.777 | 0.632–0.904 |
 
 The primary CRCV statistic did not establish better-than-chance discrimination.
 It also trailed the confidence-only baseline by 0.183 AUROC (paired bootstrap
 95% CI: 0.018 to 0.345 worse). This tiny experiment therefore does **not**
-validate the CRCV hypothesis; it says the simpler confidence-only detector is
-the better starting point for the next iteration. The complete run took 24.4
-seconds of generation on Apple MPS, excluding model loading.
+validate the CRCV hypothesis. Top-3 surprise improved AUROC by 0.040 over the
+previous best, but its paired bootstrap 95% interval was -0.056 to 0.128 and
+includes zero. The complete run took 24.4 seconds of generation on Apple MPS,
+excluding model loading.
 
 The included base-model run is intentionally the same small stress test. Its
-primary CRCV AUROC was 0.508 (95% CI 0.328–0.677), while mean token surprise was
-0.666. The base model frequently continued the prompt and hit the 24-token
+primary CRCV AUROC was 0.508 (95% CI 0.328–0.677), while top-3 token surprise was
+0.728 and worst-token surprise was 0.737. The base model frequently continued
+the prompt and hit the 24-token
 limit (79/100 answers), so this comparison also measures instruction-following
 and is not an architecture-only ablation. The browser UI exposes those outputs
 instead of hiding the confound.

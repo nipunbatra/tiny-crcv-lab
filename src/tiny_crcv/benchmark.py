@@ -32,6 +32,9 @@ SCORES = {
     "confidence_variance_mean": "Confidence variability",
     "shift_variance_mean": "Hidden-shift variability",
     "answer_tokens": "Answer length",
+    "top3_token_surprise": "Top-3 token surprise",
+    "worst_token_surprise": "Worst-token surprise",
+    "surprise_spread": "Token-surprise spread",
 }
 
 
@@ -90,6 +93,7 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
         }
 
     comparison = None
+    improvement_comparison = None
     test_labels = [int(row["is_hallucination"]) for row in test]
     if len(set(test_labels)) == 2:
         difference, difference_low, difference_high = bootstrap_auroc_difference_ci(
@@ -102,6 +106,29 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
             "test_auroc_difference": difference,
             "test_auroc_difference_ci_95": [difference_low, difference_high],
         }
+        previous_best_key = max(
+            (
+                "crcv_mean",
+                "crcv_max",
+                "mean_nll",
+                "confidence_variance_mean",
+                "shift_variance_mean",
+                "answer_tokens",
+            ),
+            key=lambda key: float(results[key]["test_auroc"]),
+        )
+        improvement, improvement_low, improvement_high = bootstrap_auroc_difference_ci(
+            test_labels,
+            [float(row["features"]["top3_token_surprise"]) for row in test],
+            [float(row["features"][previous_best_key]) for row in test],
+            seed=20260719,
+        )
+        improvement_comparison = {
+            "name": f"top-3 token surprise minus previous-best {SCORES[previous_best_key]}",
+            "baseline_score_key": previous_best_key,
+            "test_auroc_difference": improvement,
+            "test_auroc_difference_ci_95": [improvement_low, improvement_high],
+        }
 
     return {
         "label_definition": "1 = generated answer did not contain any normalized gold alias",
@@ -111,21 +138,22 @@ def evaluate(predictions: list[dict[str, Any]]) -> dict[str, Any]:
         "test_hallucinations": sum(row["is_hallucination"] for row in test),
         "scores": results,
         "paired_comparison": comparison,
+        "improvement_comparison": improvement_comparison,
     }
 
 
 def interpretation(metrics: dict[str, Any]) -> str:
-    primary = metrics["scores"]["crcv_mean"]
-    value = primary["test_auroc"]
-    low, high = primary["test_auroc_ci_95"]
+    candidate = metrics["scores"]["top3_token_surprise"]
+    value = candidate["test_auroc"]
+    low, high = candidate["test_auroc_ci_95"]
     if value is None:
-        return "CRCV AUROC is undefined because the held-out split contains only one label class."
+        return "Top-3 token surprise AUROC is undefined because the held-out split contains only one label class."
     if high < 0.5:
-        finding = "CRCV was inversely associated with wrong answers on this test."
+        finding = "Top-3 token surprise was inversely associated with wrong answers on this test."
     elif low > 0.5:
-        finding = "CRCV separated wrong from correct answers better than chance on this test."
+        finding = "Top-3 token surprise separated wrong from correct answers better than chance on this test."
     else:
-        finding = "CRCV did not demonstrate better-than-chance separation on this small test."
+        finding = "Top-3 token surprise did not demonstrate better-than-chance separation on this small test."
     return f"{finding} Its held-out AUROC was {value:.3f} (bootstrap 95% CI {low:.3f}-{high:.3f})."
 
 
@@ -175,10 +203,19 @@ def render_report(metadata: dict[str, Any], metrics: dict[str, Any]) -> str:
                 if metrics["paired_comparison"] is not None
                 else "The paired AUROC comparison is undefined because the test split has one class."
             ),
+            (
+                "Top-3 token surprise minus the previous-best original-score AUROC: "
+                f"{metrics['improvement_comparison']['test_auroc_difference']:.3f} "
+                f"(paired bootstrap 95% CI "
+                f"{metrics['improvement_comparison']['test_auroc_difference_ci_95'][0]:.3f} to "
+                f"{metrics['improvement_comparison']['test_auroc_difference_ci_95'][1]:.3f})."
+                if metrics["improvement_comparison"] is not None
+                else "The improvement comparison is undefined because the test split has one class."
+            ),
             "",
             "## What this establishes",
             "",
-            "This is a falsifiable smoke test of the document's coupling hypothesis on one tiny model, not a validated detector.",
+            "This is an exploratory follow-up on one tiny model, not a validated detector or an untouched confirmatory test.",
             "The saved predictions include each answer, gold aliases, token confidences, hidden-state shifts, and aggregate scores.",
             "The largest limitations are the 50-question held-out sample, one model/layer, greedy decoding, and lexical correctness labels.",
             "A follow-up should manually audit label errors, repeat across seeds/models, and use a larger human-aligned benchmark.",

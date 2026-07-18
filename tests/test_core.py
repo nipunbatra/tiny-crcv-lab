@@ -27,6 +27,15 @@ def test_rolling_std_and_crcv_features() -> None:
     assert volatile["crcv_mean"] > stable["crcv_mean"]
 
 
+def test_simple_token_surprise_features() -> None:
+    features = compute_features([1.0, 0.5, 0.25, 0.125], [None, 1.0, 1.0, 1.0], window=3)
+    surprises = [0.0, 0.69314718056, 1.38629436112, 2.07944154168]
+    assert features["mean_nll"] == pytest.approx(sum(surprises) / 4)
+    assert features["top3_token_surprise"] == pytest.approx(sum(surprises[1:]) / 3)
+    assert features["worst_token_surprise"] == pytest.approx(surprises[-1])
+    assert features["surprise_spread"] > 0
+
+
 def test_auroc_and_macro_f1() -> None:
     labels = [0, 0, 1, 1]
     assert auroc(labels, [0.1, 0.2, 0.8, 0.9]) == 1.0

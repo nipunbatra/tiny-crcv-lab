@@ -15,7 +15,7 @@ import baseRaw from '../outputs/qwen05b_base_100/predictions.jsonl?raw';
 import instructMetricsJson from '../outputs/qwen05b_100/metrics.json';
 import baseMetricsJson from '../outputs/qwen05b_base_100/metrics.json';
 import questionTokensJson from './data/question-tokens.json';
-import { parseJsonl, tokenCalculations } from './lib/metrics';
+import { parseJsonl, rollingSampleStd, tokenCalculations } from './lib/metrics';
 import type {
   BenchmarkMetrics,
   FeatureKey,
@@ -38,15 +38,21 @@ const questionTokens = questionTokensJson as Record<string, Array<{ id: number; 
 type AppView = 'overview' | 'explore' | 'live';
 
 const metricKeys: FeatureKey[] = [
-  'crcv_mean',
-  'crcv_max',
-  'mean_nll',
+  'top3_token_surprise',
+  'worst_token_surprise',
+  'surprise_spread',
   'confidence_variance_mean',
+  'mean_nll',
+  'crcv_max',
+  'crcv_mean',
   'shift_variance_mean',
   'answer_tokens',
 ];
 
 const metricShort: Record<FeatureKey, string> = {
+  top3_token_surprise: 'Top-3 surprise',
+  worst_token_surprise: 'Worst-token surprise',
+  surprise_spread: 'Surprise spread',
   crcv_mean: 'CRCV mean',
   crcv_max: 'CRCV max',
   mean_nll: 'Token surprise',
@@ -55,8 +61,79 @@ const metricShort: Record<FeatureKey, string> = {
   answer_tokens: 'Answer length',
 };
 
+type MetricDefinition = {
+  formula: string;
+  plain: string;
+  input: string;
+  group: 'new' | 'confidence' | 'hidden' | 'control';
+};
+
+const metricDefinitions: Record<FeatureKey, MetricDefinition> = {
+  top3_token_surprise: { formula: 'T₃ = (1/k) Σ top-k(uₜ),  uₜ = −ln(cₜ),  k = min(3,n)', plain: 'Average surprise of up to the three least-confident generated tokens.', input: 'selected-token confidences cₜ', group: 'new' },
+  worst_token_surprise: { formula: 'Umax = maxₜ(−ln(cₜ))', plain: 'Surprise of the single least-confident generated token.', input: 'selected-token confidences cₜ', group: 'new' },
+  surprise_spread: { formula: 'SDᵤ = sample-SD(−ln(c₁), …, −ln(cₙ))', plain: 'How unevenly token surprise is distributed across the answer.', input: 'selected-token confidences cₜ', group: 'new' },
+  confidence_variance_mean: { formula: 'mean_w sample-SD(cₜ in trailing window w)', plain: 'Average local wobble in selected-token confidence.', input: 'confidences with a valid state shift; W = 5', group: 'confidence' },
+  mean_nll: { formula: 'NLL = (1/n) Σₜ −ln(cₜ)', plain: 'Average surprise across every generated token.', input: 'selected-token confidences cₜ', group: 'confidence' },
+  crcv_max: { formula: 'CRCVmax = max_w sample-SD(cₜrₜ in w)', plain: 'Largest local burst in the confidence × hidden-movement signal.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'hidden' },
+  crcv_mean: { formula: 'CRCVmean = mean_w sample-SD(cₜrₜ in w)', plain: 'Average local variability in confidence × hidden-state movement.', input: 'confidences cₜ and normalized shifts rₜ; W = 5', group: 'hidden' },
+  shift_variance_mean: { formula: 'mean_w sample-SD(rₜ in trailing window w)', plain: 'Average local wobble in normalized hidden-state movement.', input: 'normalized final-state shifts rₜ; W = 5', group: 'hidden' },
+  answer_tokens: { formula: 'L = n', plain: 'Number of generated tokens; a control for answer length.', input: 'generated token pieces', group: 'control' },
+};
+
+const newMetricKeys: FeatureKey[] = ['top3_token_surprise', 'worst_token_surprise', 'surprise_spread'];
+const originalMetricKeys = metricKeys.filter((key) => !newMetricKeys.includes(key));
+
 const format = (value: number, digits = 3) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const pct = (value: number) => `${Math.round(value * 100)}%`;
+
+type WorkedExample = { inputs: string; arithmetic: string; score: number };
+
+function workedExample(key: FeatureKey, prediction: Prediction): WorkedExample {
+  const surprises = prediction.confidences.map((confidence, index) => ({
+    confidence,
+    surprise: -Math.log(Math.max(confidence, 1e-12)),
+    token: prediction.token_pieces[index],
+  }));
+  const descending = [...surprises].sort((left, right) => right.surprise - left.surprise);
+  const calculations = tokenCalculations(prediction);
+  const confidenceWindows = rollingSampleStd(calculations.map((row) => row.confidence));
+  const shiftWindows = rollingSampleStd(calculations.map((row) => row.shift));
+  const crcvWindows = calculations.flatMap((row) => row.crcv === null ? [] : [row.crcv]);
+  const numberList = (values: number[], digits = 3) => `[${values.map((value) => format(value, digits)).join(', ')}]`;
+  const meanArithmetic = (values: number[]) => `mean ${numberList(values)} = ${format(values.reduce((sum, value) => sum + value, 0) / values.length, 4)}`;
+
+  if (key === 'top3_token_surprise') {
+    const selected = descending.slice(0, 3);
+    return {
+      inputs: selected.map((item) => `${JSON.stringify(item.token)}: c=${format(item.confidence, 4)} → u=${format(item.surprise, 4)}`).join(' · '),
+      arithmetic: `(${selected.map((item) => format(item.surprise, 4)).join(' + ')}) / ${selected.length} = ${format(prediction.features[key], 4)}`,
+      score: prediction.features[key],
+    };
+  }
+  if (key === 'worst_token_surprise') {
+    const selected = descending[0];
+    return { inputs: `${JSON.stringify(selected.token)} has the lowest cₜ = ${format(selected.confidence, 5)}`, arithmetic: `−ln(${format(selected.confidence, 5)}) = ${format(selected.surprise, 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'surprise_spread') {
+    return { inputs: `uₜ = ${numberList(surprises.map((item) => item.surprise))}`, arithmetic: `sample-SD(uₜ) = ${format(prediction.features[key], 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'confidence_variance_mean') {
+    return { inputs: `window SDs = ${numberList(confidenceWindows)}`, arithmetic: meanArithmetic(confidenceWindows), score: prediction.features[key] };
+  }
+  if (key === 'mean_nll') {
+    return { inputs: `uₜ = ${numberList(surprises.map((item) => item.surprise))}`, arithmetic: meanArithmetic(surprises.map((item) => item.surprise)), score: prediction.features[key] };
+  }
+  if (key === 'crcv_max') {
+    return { inputs: `window CRCVs = ${numberList(crcvWindows)}`, arithmetic: `max = ${format(Math.max(...crcvWindows), 4)}`, score: prediction.features[key] };
+  }
+  if (key === 'crcv_mean') {
+    return { inputs: `window CRCVs = ${numberList(crcvWindows)}`, arithmetic: meanArithmetic(crcvWindows), score: prediction.features[key] };
+  }
+  if (key === 'shift_variance_mean') {
+    return { inputs: `window SDs = ${numberList(shiftWindows)}`, arithmetic: meanArithmetic(shiftWindows), score: prediction.features[key] };
+  }
+  return { inputs: prediction.token_pieces.map((token) => JSON.stringify(token)).join(' · '), arithmetic: `count = ${prediction.token_pieces.length}`, score: prediction.features[key] };
+}
 
 function ModelToggle({ value, onChange }: { value: ModelKind; onChange: (value: ModelKind) => void }) {
   return (
@@ -106,8 +183,10 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
 
 function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => void; onRun: () => void }) {
   const bench = benchmarks[model];
-  const crcv = bench.scores.crcv_mean;
-  const confidence = bench.scores.confidence_variance_mean;
+  const bestNewKey = newMetricKeys.reduce((best, key) => bench.scores[key].test_auroc > bench.scores[best].test_auroc ? key : best);
+  const previousBestKey = originalMetricKeys.reduce((best, key) => bench.scores[key].test_auroc > bench.scores[best].test_auroc ? key : best);
+  const bestNew = bench.scores[bestNewKey];
+  const previousBest = bench.scores[previousBestKey];
   return (
     <section id="top" className="grid-noise border-b hairline">
       <div className="shell grid gap-10 py-14 lg:grid-cols-[1.15fr_.85fr] lg:py-20">
@@ -124,13 +203,14 @@ function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => 
         </div>
         <div className="card self-end p-6 lg:p-8">
           <p className="eyebrow">Short answer</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">The new signal was weak.</h2>
-          <p className="mt-4 text-base leading-7 text-[#505955]">CRCV scored {format(crcv.test_auroc)}. A simpler confidence-only signal scored {format(confidence.test_auroc)} and worked better on this small test.</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">The simpler follow-up improved it.</h2>
+          <p className="mt-4 text-base leading-7 text-[#505955]">{bestNew.display_name} scored {format(bestNew.test_auroc)}, versus {format(previousBest.test_auroc)} for the previous best. It only needs the probabilities the model already emits.</p>
           <div className="mt-6 border-t hairline pt-5">
             <p className="text-sm font-semibold">How to read the score</p>
-            <div className="relative mt-3 h-2 bg-[#ded9cf]"><span className="absolute left-1/2 top-[-5px] h-4 w-px bg-[#69716d]" /><span className="absolute top-0 h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (crcv.test_auroc - .5) * 200)}%` }} /></div>
+            <div className="relative mt-3 h-2 bg-[#ded9cf]"><span className="absolute left-1/2 top-[-5px] h-4 w-px bg-[#69716d]" /><span className="absolute top-0 h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (bestNew.test_auroc - .5) * 200)}%` }} /></div>
             <div className="mt-2 flex justify-between text-xs text-[#69716d]"><span>0.5 · chance</span><span>1.0 · perfect ranking</span></div>
           </div>
+          <p className="mt-5 text-xs leading-5 text-[#69716d]">Exploratory follow-up: this 50-question test has now informed the project, so the result needs confirmation on fresh questions.</p>
           <div className="mt-6 flex gap-8 text-sm">
             <div><span className="mono block text-xl font-semibold">100</span><span className="text-[#69716d]">questions</span></div>
             <div><span className="mono block text-xl font-semibold">50</span><span className="text-[#69716d]">held out</span></div>
@@ -144,11 +224,14 @@ function Hero({ model, onExplore, onRun }: { model: ModelKind; onExplore: () => 
 
 function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: () => void }) {
   const example = predictions[model].find((item) => item.id === 'q002') ?? predictions[model][0];
-  const calculation = tokenCalculations(example).find((item) => item.crcv !== null) ?? tokenCalculations(example)[0];
   const bench = benchmarks[model];
+  const tail = example.confidences
+    .map((confidence, index) => ({ confidence, token: example.token_pieces[index], surprise: -Math.log(Math.max(confidence, 1e-12)) }))
+    .sort((left, right) => right.surprise - left.surprise)
+    .slice(0, 3);
   const scores: Array<{ key: FeatureKey; plain: string }> = [
+    { key: 'top3_token_surprise', plain: 'Average surprise of the three shakiest tokens' },
     { key: 'confidence_variance_mean', plain: 'How much confidence jumps around' },
-    { key: 'mean_nll', plain: 'How surprised the model is by its own tokens' },
     { key: 'crcv_mean', plain: 'Confidence × hidden-state movement (CRCV)' },
   ];
   return (
@@ -156,18 +239,18 @@ function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: (
       <section className="shell py-16">
         <div className="grid gap-10 lg:grid-cols-[.7fr_1.3fr]">
           <div>
-            <p className="eyebrow">One answer, four steps</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">What are we actually measuring?</h2>
-            <p className="mt-5 max-w-lg text-base leading-7 text-[#69716d]">The detector does not fact-check against Wikipedia. It watches the model while it writes, then asks whether its internal behavior looks unusually unstable.</p>
+            <p className="eyebrow">The improved score, four steps</p>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Focus on the model’s three shakiest tokens.</h2>
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#69716d]">The detector still does not fact-check. It converts each selected-token probability into surprise, keeps the three largest values, and averages them.</p>
           </div>
           <div className="overview-flow" aria-label="Simplified detector flow">
-            <OverviewStep number="1" label="Ask" value={example.question} note="The question enters the model." />
+            <OverviewStep number="1" label="Ask" value={example.question} note="The question is tokenized and passes through all 24 layers." />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="2" label="Watch a token" value={JSON.stringify(calculation.token)} note={`Confidence ${format(calculation.confidence, 3)} · movement ${format(calculation.shift, 3)}`} />
+            <OverviewStep number="2" label="Watch confidence" value={`${example.confidences.length} token probabilities`} note={`From ${format(Math.min(...example.confidences), 3)} to ${format(Math.max(...example.confidences), 3)} in this answer.`} />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="3" label="Combine" value={`${format(calculation.confidence, 3)} × ${format(calculation.shift, 3)} = ${format(calculation.coupling, 3)}`} note="One confidence–movement signal." />
+            <OverviewStep number="3" label="Keep the top 3" value={tail.map((item) => JSON.stringify(item.token)).join(' · ')} note={tail.map((item) => `−ln(${format(item.confidence, 3)})=${format(item.surprise, 3)}`).join(' · ')} />
             <ArrowRight className="overview-arrow" size={20} />
-            <OverviewStep number="4" label="Check stability" value={calculation.crcv === null ? 'Waiting for 5 tokens' : format(calculation.crcv, 3)} note="How jumpy that signal is over five tokens." accent />
+            <OverviewStep number="4" label="Average" value={format(example.features.top3_token_surprise, 3)} note="Higher means the answer contained a shakier confidence tail." accent />
           </div>
         </div>
       </section>
@@ -176,14 +259,14 @@ function BeginnerOverview({ model, onExplore }: { model: ModelKind; onExplore: (
         <div className="shell grid gap-10 lg:grid-cols-[.8fr_1.2fr]">
           <div>
             <p className="eyebrow">What the 50 unseen questions said</p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">Simple confidence won this round.</h2>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-.05em]">The confidence tail won this round.</h2>
             <p className="mt-5 max-w-lg leading-7 text-[#69716d]">Higher AUROC means a score more often ranks a wrong answer above a correct one. Chance is 0.500. This is a small experiment, so treat the ranking as a lead—not a verdict.</p>
             <button onClick={onExplore} className="focus-ring mt-7 inline-flex items-center gap-2 font-semibold text-[#9e321e]">Open the evidence and calculations <ArrowRight size={18} /></button>
           </div>
           <div className="space-y-5 self-center">
             {scores.map(({ key, plain }) => {
               const value = bench.scores[key].test_auroc;
-              return <div key={key}><div className="mb-2 flex items-end justify-between gap-4"><div><p className="font-semibold">{plain}</p><p className="mt-1 text-xs text-[#69716d]">{key === 'crcv_mean' ? 'the proposed detector' : 'simpler baseline'}</p></div><span className="mono text-2xl font-semibold">{format(value)}</span></div><div className="relative h-2 bg-[#d5d0c6]"><span className="absolute left-1/2 top-[-3px] h-4 w-px bg-[#69716d]" /><span className="absolute h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (value - .5) * 200)}%` }} /></div></div>;
+              return <div key={key}><div className="mb-2 flex items-end justify-between gap-4"><div><p className="font-semibold">{plain}</p><p className="mt-1 text-xs text-[#69716d]">{key === 'top3_token_surprise' ? 'new simple candidate' : key === 'crcv_mean' ? 'original proposed detector' : 'previous best'}</p></div><span className="mono text-2xl font-semibold">{format(value)}</span></div><div className="relative h-2 bg-[#d5d0c6]"><span className="absolute left-1/2 top-[-3px] h-4 w-px bg-[#69716d]" /><span className="absolute h-2 bg-[#df4c2f]" style={{ left: '50%', width: `${Math.max(0, (value - .5) * 200)}%` }} /></div></div>;
             })}
           </div>
         </div>
@@ -198,43 +281,83 @@ function OverviewStep({ number, label, value, note, accent = false }: { number: 
 
 function Results({ model }: { model: ModelKind }) {
   const bench = benchmarks[model];
+  const [selectedMetric, setSelectedMetric] = useState<FeatureKey>('top3_token_surprise');
+  const leaderboard = [...metricKeys].sort((left, right) => bench.scores[right].test_auroc - bench.scores[left].test_auroc);
   return (
     <section id="results" className="shell py-18">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Experiment 01</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">What survived the held-out test?</h2>
+          <p className="eyebrow">Benchmark leaderboard</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Nine small scores, ranked.</h2>
         </div>
-        <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC asks: if we draw one wrong and one correct answer, how often does the metric assign the wrong answer a higher score?</p>
+        <p className="max-w-xl text-sm leading-6 text-[#69716d]">AUROC asks: if we draw one wrong and one correct answer, how often does the metric assign the wrong answer a higher score? Select any row to inspect its exact formula.</p>
       </div>
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-left">
+        <table className="w-full min-w-[920px] border-collapse text-left">
           <thead className="bg-[#eeeae1] text-xs uppercase tracking-[.08em] text-[#69716d]">
-            <tr><th className="px-5 py-4">Metric</th><th className="px-5 py-4">Test AUROC</th><th className="px-5 py-4">95% CI</th><th className="px-5 py-4">Macro-F1</th><th className="px-5 py-4">Reading</th></tr>
+            <tr><th className="px-4 py-4">Rank</th><th className="px-4 py-4">Metric</th><th className="px-4 py-4">Test AUROC</th><th className="px-4 py-4">95% CI</th><th className="px-4 py-4">Calibration</th><th className="px-4 py-4">Macro-F1</th><th className="px-4 py-4">Formula</th></tr>
           </thead>
           <tbody>
-            {metricKeys.map((key) => {
+            {leaderboard.map((key, index) => {
               const metric = bench.scores[key];
               const scoreWidth = `${Math.max(0, Math.min(100, metric.test_auroc * 100))}%`;
               return (
-                <tr key={key} className="border-t hairline align-middle">
-                  <td className="px-5 py-5 font-semibold">{metric.display_name}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[10px] uppercase text-[#9e321e]">primary</span>}</td>
-                  <td className="px-5 py-5"><div className="flex items-center gap-3"><span className="mono w-12 font-semibold">{format(metric.test_auroc)}</span><div className="h-1.5 w-28 bg-[#e7e2d8]"><div className="h-full bg-[#df4c2f]" style={{ width: scoreWidth }} /></div></div></td>
-                  <td className="mono px-5 py-5 text-sm text-[#69716d]">{format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</td>
-                  <td className="mono px-5 py-5">{format(metric.test_macro_f1)}</td>
-                  <td className="px-5 py-5 text-sm text-[#69716d]">{metric.test_auroc > .7 ? 'useful signal here' : metric.test_auroc > .55 ? 'weak separation' : 'near chance'}</td>
+                <tr key={key} className={`border-t hairline align-middle ${selectedMetric === key ? 'bg-[#fff1ec]' : ''}`}>
+                  <td className="mono px-4 py-5 text-[#69716d]">#{index + 1}</td>
+                  <td className="px-4 py-5 font-semibold">{metric.display_name}{newMetricKeys.includes(key) && <span className="ml-2 bg-[#e5f1eb] px-2 py-1 text-[10px] uppercase text-[#236349]">new</span>}{key === 'crcv_mean' && <span className="ml-2 bg-[#fbe9e2] px-2 py-1 text-[10px] uppercase text-[#9e321e]">original</span>}</td>
+                  <td className="px-4 py-5"><div className="flex items-center gap-3"><span className="mono w-12 font-semibold">{format(metric.test_auroc)}</span><div className="h-1.5 w-24 bg-[#e7e2d8]"><div className="h-full bg-[#df4c2f]" style={{ width: scoreWidth }} /></div></div></td>
+                  <td className="mono px-4 py-5 text-sm text-[#69716d]">{format(metric.test_auroc_ci_95[0])}–{format(metric.test_auroc_ci_95[1])}</td>
+                  <td className="mono px-4 py-5">{format(metric.calibration_auroc)}</td>
+                  <td className="mono px-4 py-5">{format(metric.test_macro_f1)}</td>
+                  <td className="px-4 py-5"><button onClick={() => setSelectedMetric(key)} className="focus-ring max-w-[240px] text-left text-xs leading-5 text-[#9e321e] underline decoration-[#df4c2f]/30 underline-offset-4">{metricDefinitions[key].formula}</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <MetricGuide model={model} selected={selectedMetric} onSelect={setSelectedMetric} />
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <Insight icon={<Gauge size={20} />} label="Decision threshold" value={format(bench.scores.crcv_mean.threshold, 4)} text="Chosen only on the 50 calibration questions by maximum macro-F1." />
-        <Insight icon={<WarningCircle size={20} />} label="Important result" value={format(bench.paired_comparison.test_auroc_difference)} text="CRCV minus confidence-variability AUROC. Negative means the simpler baseline won." />
+        <Insight icon={<Gauge size={20} />} label="Top-3 threshold" value={format(bench.scores.top3_token_surprise.threshold, 4)} text="Chosen only on the 50 calibration questions by maximum macro-F1." />
+        <Insight icon={<WarningCircle size={20} />} label="Gain vs previous best" value={`+${format(bench.improvement_comparison.test_auroc_difference)}`} text={`Paired 95% interval ${format(bench.improvement_comparison.test_auroc_difference_ci_95[0])} to ${format(bench.improvement_comparison.test_auroc_difference_ci_95[1])}; it includes zero, so the gain is not yet secure.`} />
         <Insight icon={<BookOpenText size={20} />} label="Operational label" value={`${bench.test_hallucinations}/${bench.test_examples}`} text="Wrong means no normalized accepted answer appeared. This is transparent, but imperfect." />
       </div>
+      <p className="mt-5 border-l-4 border-[#df4c2f] bg-[#fbe9e2] p-4 text-sm leading-6 text-[#6f2d20]">This is an exploratory iteration. On the Instruct run, the top-3 rule was favored by the calibration split among three simple confidence-tail ideas, but this same held-out set has now been inspected. A fresh benchmark is required before treating 0.817 as a confirmed estimate.</p>
     </section>
+  );
+}
+
+function MetricGuide({ model, selected, onSelect }: { model: ModelKind; selected: FeatureKey; onSelect: (key: FeatureKey) => void }) {
+  const prediction = predictions[model].find((item) => item.id === 'q002') ?? predictions[model][0];
+  const definition = metricDefinitions[selected];
+  const example = workedExample(selected, prediction);
+  return (
+    <div className="card mt-5 overflow-hidden">
+      <div className="border-b hairline bg-[#eeeae1] p-4">
+        <p className="eyebrow">Formula dictionary · choose a metric</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {metricKeys.map((key) => <button key={key} onClick={() => onSelect(key)} className={`focus-ring px-3 py-2 text-xs font-semibold ${selected === key ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{metricShort[key]}</button>)}
+        </div>
+      </div>
+      <div className="grid lg:grid-cols-[.8fr_1.2fr]">
+        <div className="border-b hairline p-5 lg:border-b-0 lg:border-r md:p-7">
+          <div className="flex flex-wrap items-center gap-2"><p className="eyebrow">Exact definition</p><span className="bg-[#eeeae1] px-2 py-1 text-[10px] uppercase text-[#69716d]">{definition.group}</span></div>
+          <h3 className="mt-3 text-2xl font-semibold">{benchmarks[model].scores[selected].display_name}</h3>
+          <p className="mono mt-5 overflow-x-auto bg-[#18211d] p-4 text-sm leading-7 text-white">{definition.formula}</p>
+          <p className="mt-5 leading-7 text-[#505955]">{definition.plain}</p>
+          <p className="mt-4 text-sm text-[#69716d]"><strong className="text-[#18211d]">Inputs:</strong> {definition.input}</p>
+        </div>
+        <div className="p-5 md:p-7">
+          <p className="eyebrow">Worked example · {prediction.id}</p>
+          <p className="mt-2 font-semibold">{prediction.question}</p>
+          <div className="mt-5 grid gap-3">
+            <div className="bg-[#f4f1ea] p-4"><p className="eyebrow">Actual inputs</p><p className="mono mt-2 break-words text-sm leading-6">{example.inputs}</p></div>
+            <div className="bg-[#f4f1ea] p-4"><p className="eyebrow">Substitution</p><p className="mono mt-2 break-words text-sm leading-6">{example.arithmetic}</p></div>
+          </div>
+          <div className="mt-4 flex items-end justify-between border-t hairline pt-4"><span className="text-sm text-[#69716d]">Saved answer-level score</span><strong className="mono text-2xl">{selected === 'answer_tokens' ? example.score : format(example.score, 6)}</strong></div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -318,6 +441,7 @@ function QuestionDetail({ prediction }: { prediction: Prediction }) {
       <div className="grid grid-cols-2 gap-px bg-[#d7d3c9] sm:grid-cols-3 xl:grid-cols-6">
         {metricKeys.map((key) => <div className="bg-[#fffdf8] px-3 py-4" key={key}><p className="text-[11px] text-[#69716d]">{metricShort[key]}</p><p className="mono mt-1 font-semibold">{key === 'answer_tokens' ? prediction.features[key] : format(prediction.features[key], 4)}</p></div>)}
       </div>
+      <QuestionMetricAudit prediction={prediction} />
 
       <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
         <div><p className="eyebrow">Calculation tape</p><h4 className="mt-1 text-xl font-semibold">c<sub>t</sub> × r<sub>t</sub>, then rolling sample deviation</h4></div>
@@ -335,6 +459,25 @@ function QuestionDetail({ prediction }: { prediction: Prediction }) {
         <div className="border hairline p-4"><p className="eyebrow">Mean token surprise</p><p className="mono mt-3 text-sm">mean(−ln(c<sub>t</sub>)) across all {prediction.confidences.length} tokens</p><p className="mono mt-3 text-xl font-semibold">= {format(prediction.features.mean_nll, 6)}</p></div>
       </div>
     </article>
+  );
+}
+
+function QuestionMetricAudit({ prediction }: { prediction: Prediction }) {
+  const [selected, setSelected] = useState<FeatureKey>('top3_token_surprise');
+  const definition = metricDefinitions[selected];
+  const example = workedExample(selected, prediction);
+  return (
+    <details className="mt-4 border hairline bg-[#f7f4ed]">
+      <summary className="focus-ring cursor-pointer px-4 py-3 text-sm font-semibold">Show how any score is calculated for this question</summary>
+      <div className="border-t hairline p-4">
+        <div className="flex flex-wrap gap-2">{metricKeys.map((key) => <button key={key} onClick={() => setSelected(key)} className={`focus-ring px-3 py-2 text-xs font-semibold ${selected === key ? 'bg-[#18211d] text-white' : 'border hairline bg-white'}`}>{metricShort[key]}</button>)}</div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="bg-white p-4"><p className="eyebrow">Formula</p><p className="mono mt-2 break-words text-sm leading-6">{definition.formula}</p></div>
+          <div className="bg-white p-4"><p className="eyebrow">This answer’s inputs</p><p className="mono mt-2 break-words text-xs leading-6">{example.inputs}</p></div>
+          <div className="bg-white p-4"><p className="eyebrow">Substitute and calculate</p><p className="mono mt-2 break-words text-sm leading-6">{example.arithmetic}</p><p className="mono mt-3 text-xl font-semibold">= {selected === 'answer_tokens' ? example.score : format(example.score, 6)}</p></div>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -430,7 +573,7 @@ function FlowValue({ label, symbol, value, note, accent = false }: { label: stri
 }
 
 function FormulaScratch({ row }: { row: ReturnType<typeof tokenCalculations>[number] }) {
-  return <div className="mt-3 bg-[#18211d] p-5 text-white"><p className="eyebrow !text-[#bfc7c2]">Selected window ending at token {row.tokenIndex}</p><div className="mt-4 grid gap-4 md:grid-cols-3"><div><p className="text-xs text-[#bfc7c2]">1 · window values</p><p className="mono mt-2 text-sm leading-6">[{row.window!.map((value) => format(value, 5)).join(', ')}]</p></div><div><p className="text-xs text-[#bfc7c2]">2 · sample variance</p><p className="mono mt-2 text-sm leading-6">Σ(s − {format(row.windowMean!, 5)})² / {row.window!.length - 1}<br />= {format(row.sampleVariance!, 7)}</p></div><div><p className="text-xs text-[#bfc7c2]">3 · square root</p><p className="mono mt-2 text-2xl font-semibold">CRCV<sub>t</sub> = {format(row.crcv!, 6)}</p></div></div></div>;
+  return <div className="mt-3 bg-[#18211d] p-5 text-white"><p className="eyebrow !text-[#bfc7c2]">Selected window ending at token {row.tokenIndex}</p><div className="mt-4 grid gap-4 md:grid-cols-3"><div><p className="text-xs text-[#bfc7c2]">1 · window values</p><p className="mono mt-2 text-sm leading-6">[{row.window!.map((value) => format(value, 5)).join(', ')}]</p></div><div><p className="text-xs text-[#bfc7c2]">2 · sample variance</p><p className="mono mt-2 text-sm leading-6">{row.window!.length < 2 ? <>one value → 0 by convention</> : <>Σ(s − {format(row.windowMean!, 5)})² / {row.window!.length - 1}<br />= {format(row.sampleVariance!, 7)}</>}</p></div><div><p className="text-xs text-[#bfc7c2]">3 · square root</p><p className="mono mt-2 text-2xl font-semibold">CRCV<sub>t</sub> = {format(row.crcv!, 6)}</p></div></div></div>;
 }
 
 function LiveLab({ model }: { model: ModelKind }) {

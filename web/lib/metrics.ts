@@ -31,12 +31,17 @@ export function computeFeatures(confidences: number[], shifts: Array<number | nu
   const confidenceCrcv = rollingSampleStd(validConfidences, window);
   const shiftCrcv = rollingSampleStd(validShifts, window);
   const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const tokenSurprises = confidences.map((value) => -Math.log(Math.max(value, 1e-12)));
+  const largestSurprises = [...tokenSurprises].sort((left, right) => right - left).slice(0, 3);
   return {
     crcv_mean: mean(crcv),
     crcv_max: Math.max(...crcv),
     confidence_variance_mean: mean(confidenceCrcv),
     shift_variance_mean: mean(shiftCrcv),
-    mean_nll: confidences.length ? mean(confidences.map((value) => -Math.log(Math.max(value, 1e-12)))) : 0,
+    mean_nll: tokenSurprises.length ? mean(tokenSurprises) : 0,
+    top3_token_surprise: largestSurprises.length ? mean(largestSurprises) : 0,
+    worst_token_surprise: largestSurprises[0] ?? 0,
+    surprise_spread: sampleStd(tokenSurprises),
     answer_tokens: confidences.length,
   };
 }
@@ -71,7 +76,15 @@ export function tokenCalculations(prediction: Prediction, window = WINDOW): Toke
 
   const effectiveWindow = Math.min(window, valid.length);
   valid.forEach((row, index) => {
-    if (index + 1 < effectiveWindow || effectiveWindow < 2) return;
+    if (effectiveWindow < 2) {
+      row.window = [row.coupling];
+      row.windowMean = row.coupling;
+      row.squaredDeviations = [0];
+      row.sampleVariance = 0;
+      row.crcv = 0;
+      return;
+    }
+    if (index + 1 < effectiveWindow) return;
     const values = valid.slice(index + 1 - effectiveWindow, index + 1).map((item) => item.coupling);
     const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
     const squares = values.map((value) => (value - mean) ** 2);

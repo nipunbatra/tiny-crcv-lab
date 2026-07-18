@@ -1,6 +1,9 @@
 export type ModelKind = 'instruct' | 'base';
 
 export type FeatureKey =
+  | 'top3_token_surprise'
+  | 'worst_token_surprise'
+  | 'surprise_spread'
   | 'crcv_mean'
   | 'crcv_max'
   | 'mean_nll'
@@ -9,6 +12,9 @@ export type FeatureKey =
   | 'answer_tokens';
 
 export interface Features {
+  top3_token_surprise: number;
+  worst_token_surprise: number;
+  surprise_spread: number;
   crcv_mean: number;
   crcv_max: number;
   mean_nll: number;
@@ -56,6 +62,12 @@ export interface BenchmarkMetrics {
   scores: Record<FeatureKey, ScoreMetric>;
   paired_comparison: {
     name: string;
+    test_auroc_difference: number;
+    test_auroc_difference_ci_95: [number, number];
+  };
+  improvement_comparison: {
+    name: string;
+    baseline_score_key: FeatureKey;
     test_auroc_difference: number;
     test_auroc_difference_ci_95: [number, number];
   };

@@ -118,6 +118,63 @@
         "false_negative": 6,
         "true_positive": 9
       }
+    },
+    "top3_token_surprise": {
+      "display_name": "Top-3 token surprise",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.8198529411764706,
+      "calibration_macro_f1": 0.7619047619047619,
+      "threshold": 1.0221941576466735,
+      "test_auroc": 0.8171428571428572,
+      "test_auroc_ci_95": [
+        0.6842105263157895,
+        0.9314285714285714
+      ],
+      "test_macro_f1": 0.6684749849306811,
+      "test_confusion": {
+        "true_negative": 34,
+        "false_positive": 1,
+        "false_negative": 10,
+        "true_positive": 5
+      }
+    },
+    "worst_token_surprise": {
+      "display_name": "Worst-token surprise",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7610294117647058,
+      "calibration_macro_f1": 0.7267759562841529,
+      "threshold": 1.1185254168175094,
+      "test_auroc": 0.7523809523809524,
+      "test_auroc_ci_95": [
+        0.5925297113752123,
+        0.8888888888888888
+      ],
+      "test_macro_f1": 0.6323529411764706,
+      "test_confusion": {
+        "true_negative": 26,
+        "false_positive": 9,
+        "false_negative": 7,
+        "true_positive": 8
+      }
+    },
+    "surprise_spread": {
+      "display_name": "Token-surprise spread",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7481617647058824,
+      "calibration_macro_f1": 0.6710526315789473,
+      "threshold": 0.5355162565660403,
+      "test_auroc": 0.7714285714285715,
+      "test_auroc_ci_95": [
+        0.6177777777777778,
+        0.9043659043659044
+      ],
+      "test_macro_f1": 0.6329757199322417,
+      "test_confusion": {
+        "true_negative": 32,
+        "false_positive": 3,
+        "false_negative": 10,
+        "true_positive": 5
+      }
     }
   },
   "paired_comparison": {
@@ -126,6 +183,15 @@
     "test_auroc_difference_ci_95": [
       -0.34476190476190477,
       -0.017857142857142794
+    ]
+  },
+  "improvement_comparison": {
+    "name": "top-3 token surprise minus previous-best Confidence variability",
+    "baseline_score_key": "confidence_variance_mean",
+    "test_auroc_difference": 0.040000000000000036,
+    "test_auroc_difference_ci_95": [
+      -0.05555555555555558,
+      0.1284722222222222
     ]
   },
   "runtime": {
