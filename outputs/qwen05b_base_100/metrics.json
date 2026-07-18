@@ -1,0 +1,137 @@
+{
+  "label_definition": "1 = generated answer did not contain any normalized gold alias",
+  "calibration_examples": 50,
+  "calibration_hallucinations": 17,
+  "test_examples": 50,
+  "test_hallucinations": 19,
+  "scores": {
+    "crcv_mean": {
+      "display_name": "CRCV (primary)",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.6131907308377896,
+      "calibration_macro_f1": 0.5784825371336813,
+      "threshold": 0.1669183589377231,
+      "test_auroc": 0.5076400679117148,
+      "test_auroc_ci_95": [
+        0.328125,
+        0.6774193548387096
+      ],
+      "test_macro_f1": 0.44920440636474906,
+      "test_confusion": {
+        "true_negative": 8,
+        "false_positive": 23,
+        "false_negative": 4,
+        "true_positive": 15
+      }
+    },
+    "crcv_max": {
+      "display_name": "CRCV maximum",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.48663101604278075,
+      "calibration_macro_f1": 0.6323529411764706,
+      "threshold": 0.44299663831996017,
+      "test_auroc": 0.4855687606112054,
+      "test_auroc_ci_95": [
+        0.31655844155844154,
+        0.6545138888888888
+      ],
+      "test_macro_f1": 0.45054945054945056,
+      "test_confusion": {
+        "true_negative": 20,
+        "false_positive": 11,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "mean_nll": {
+      "display_name": "Mean token surprise",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.8306595365418895,
+      "calibration_macro_f1": 0.8300145701796988,
+      "threshold": 0.6034295461409958,
+      "test_auroc": 0.66553480475382,
+      "test_auroc_ci_95": [
+        0.5008488964346349,
+        0.8070175438596491
+      ],
+      "test_macro_f1": 0.5841995841995842,
+      "test_confusion": {
+        "true_negative": 29,
+        "false_positive": 2,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "confidence_variance_mean": {
+      "display_name": "Confidence variability",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.7183600713012478,
+      "calibration_macro_f1": 0.7028862478777589,
+      "threshold": 0.21577375314962063,
+      "test_auroc": 0.597623089983022,
+      "test_auroc_ci_95": [
+        0.44166666666666665,
+        0.7675438596491229
+      ],
+      "test_macro_f1": 0.45054945054945056,
+      "test_confusion": {
+        "true_negative": 20,
+        "false_positive": 11,
+        "false_negative": 14,
+        "true_positive": 5
+      }
+    },
+    "shift_variance_mean": {
+      "display_name": "Hidden-shift variability",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.5864527629233511,
+      "calibration_macro_f1": 0.6031746031746031,
+      "threshold": 0.21588946592093994,
+      "test_auroc": 0.5398981324278438,
+      "test_auroc_ci_95": [
+        0.36502546689303905,
+        0.7047619047619048
+      ],
+      "test_macro_f1": 0.5322245322245323,
+      "test_confusion": {
+        "true_negative": 28,
+        "false_positive": 3,
+        "false_negative": 15,
+        "true_positive": 4
+      }
+    },
+    "answer_tokens": {
+      "display_name": "Answer length",
+      "direction": "higher score predicts an incorrect answer",
+      "calibration_auroc": 0.42513368983957217,
+      "calibration_macro_f1": 0.39759036144578314,
+      "threshold": 24.000000015,
+      "test_auroc": 0.4838709677419355,
+      "test_auroc_ci_95": [
+        0.3672014260249554,
+        0.5925324675324676
+      ],
+      "test_macro_f1": 0.38271604938271603,
+      "test_confusion": {
+        "true_negative": 31,
+        "false_positive": 0,
+        "false_negative": 19,
+        "true_positive": 0
+      }
+    }
+  },
+  "paired_comparison": {
+    "name": "primary CRCV minus confidence variability",
+    "test_auroc_difference": -0.08998302207130726,
+    "test_auroc_difference_ci_95": [
+      -0.22843822843822847,
+      0.04414261460101865
+    ]
+  },
+  "runtime": {
+    "total_generation_seconds": 36.92356287850998,
+    "mean_seconds_per_question": 0.36923562878509986,
+    "median_seconds_per_question": 0.3867130831349641
+  },
+  "answers_at_token_limit": 79
+}

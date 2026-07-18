@@ -1,0 +1,18 @@
+{
+  "created_at_utc": "2026-07-18T04:54:13.853538+00:00",
+  "model_id": "Qwen/Qwen2.5-0.5B",
+  "requested_revision": "main",
+  "resolved_revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+  "device": "mps",
+  "layer": -1,
+  "window": 5,
+  "max_new_tokens": 24,
+  "decoding": "greedy",
+  "prompt_style": "base",
+  "question_file": "data/questions.jsonl",
+  "question_sha256": "4e536a6a561919cca2e5452a81a21acd4167cc990449152798c5c691cfec0d2d",
+  "python": "3.12.13",
+  "platform": "macOS-15.7.7-arm64-arm-64bit",
+  "torch": "2.13.0",
+  "transformers": "4.57.6"
+}

@@ -1,0 +1,100 @@
+{"id":"q001","question":"What is the capital of France?","answers":["Paris"],"category":"geography","difficulty":"easy","split":"calibration"}
+{"id":"q002","question":"Which river flows through Cairo?","answers":["Nile","Nile River"],"category":"geography","difficulty":"easy","split":"test"}
+{"id":"q003","question":"What is the highest mountain above sea level?","answers":["Mount Everest","Everest"],"category":"geography","difficulty":"easy","split":"calibration"}
+{"id":"q004","question":"In which country is the ancient city of Petra?","answers":["Jordan"],"category":"geography","difficulty":"easy","split":"test"}
+{"id":"q005","question":"What is the capital of Australia?","answers":["Canberra"],"category":"geography","difficulty":"easy","split":"calibration"}
+{"id":"q006","question":"Which strait separates Asia from North America?","answers":["Bering Strait"],"category":"geography","difficulty":"medium","split":"test"}
+{"id":"q007","question":"What is the deepest lake in the world?","answers":["Lake Baikal","Baikal"],"category":"geography","difficulty":"medium","split":"calibration"}
+{"id":"q008","question":"On which continent is the Atacama Desert?","answers":["South America"],"category":"geography","difficulty":"medium","split":"test"}
+{"id":"q009","question":"Which major river flows through Vienna?","answers":["Danube","Danube River"],"category":"geography","difficulty":"medium","split":"calibration"}
+{"id":"q010","question":"Which country completely surrounds Lesotho?","answers":["South Africa"],"category":"geography","difficulty":"medium","split":"test"}
+{"id":"q011","question":"What is the chemical symbol for gold?","answers":["Au"],"category":"science","difficulty":"easy","split":"calibration"}
+{"id":"q012","question":"Which planet is known as the Red Planet?","answers":["Mars"],"category":"science","difficulty":"easy","split":"test"}
+{"id":"q013","question":"Which gas do plants absorb during photosynthesis?","answers":["carbon dioxide","CO2"],"category":"science","difficulty":"easy","split":"calibration"}
+{"id":"q014","question":"What is the SI unit of force?","answers":["newton","newtons"],"category":"science","difficulty":"easy","split":"test"}
+{"id":"q015","question":"Which organ in the human body produces insulin?","answers":["pancreas"],"category":"science","difficulty":"easy","split":"calibration"}
+{"id":"q016","question":"Which subatomic particle has no electric charge?","answers":["neutron","neutrons"],"category":"science","difficulty":"medium","split":"test"}
+{"id":"q017","question":"Which planet has the shortest year?","answers":["Mercury"],"category":"science","difficulty":"medium","split":"calibration"}
+{"id":"q018","question":"What process changes liquid into gas at its surface?","answers":["evaporation"],"category":"science","difficulty":"medium","split":"test"}
+{"id":"q019","question":"What is the most abundant gas in Earth's atmosphere?","answers":["nitrogen"],"category":"science","difficulty":"medium","split":"calibration"}
+{"id":"q020","question":"Which scientist is associated with the uncertainty principle?","answers":["Werner Heisenberg","Heisenberg"],"category":"science","difficulty":"hard","split":"test"}
+{"id":"q021","question":"Who was the first president of the United States?","answers":["George Washington","Washington"],"category":"history","difficulty":"easy","split":"calibration"}
+{"id":"q022","question":"In what year was Magna Carta first sealed?","answers":["1215","twelve fifteen"],"category":"history","difficulty":"medium","split":"test"}
+{"id":"q023","question":"Which Roman city was buried by Mount Vesuvius in 79 CE?","answers":["Pompeii"],"category":"history","difficulty":"easy","split":"calibration"}
+{"id":"q024","question":"Which empire built Machu Picchu?","answers":["Inca Empire","Inca","Incan Empire"],"category":"history","difficulty":"easy","split":"test"}
+{"id":"q025","question":"In what year did the Berlin Wall fall?","answers":["1989","nineteen eighty nine"],"category":"history","difficulty":"easy","split":"calibration"}
+{"id":"q026","question":"Which battle ended Napoleon's rule in 1815?","answers":["Battle of Waterloo","Waterloo"],"category":"history","difficulty":"medium","split":"test"}
+{"id":"q027","question":"Which ancient wonder stood on the island of Pharos?","answers":["Lighthouse of Alexandria","Pharos of Alexandria","Alexandria lighthouse"],"category":"history","difficulty":"hard","split":"calibration"}
+{"id":"q028","question":"Which treaty formally ended World War I between Germany and the Allies?","answers":["Treaty of Versailles","Versailles"],"category":"history","difficulty":"medium","split":"test"}
+{"id":"q029","question":"Who became the first emperor of a unified China?","answers":["Qin Shi Huang","Qin Shihuang"],"category":"history","difficulty":"hard","split":"calibration"}
+{"id":"q030","question":"Which dynasty ruled England from 1485 to 1603?","answers":["Tudor dynasty","Tudors","Tudor"],"category":"history","difficulty":"medium","split":"test"}
+{"id":"q031","question":"Who wrote Hamlet?","answers":["William Shakespeare","Shakespeare"],"category":"literature","difficulty":"easy","split":"calibration"}
+{"id":"q032","question":"Who wrote the novel Nineteen Eighty-Four?","answers":["George Orwell","Orwell"],"category":"literature","difficulty":"easy","split":"test"}
+{"id":"q033","question":"Who wrote Don Quixote?","answers":["Miguel de Cervantes","Cervantes"],"category":"literature","difficulty":"easy","split":"calibration"}
+{"id":"q034","question":"Which fictional detective lives at 221B Baker Street?","answers":["Sherlock Holmes","Holmes"],"category":"literature","difficulty":"easy","split":"test"}
+{"id":"q035","question":"Which epic poem opens by invoking the wrath of Achilles?","answers":["Iliad","The Iliad"],"category":"literature","difficulty":"medium","split":"calibration"}
+{"id":"q036","question":"Who wrote One Hundred Years of Solitude?","answers":["Gabriel Garcia Marquez","Gabriel García Márquez","Garcia Marquez","García Márquez"],"category":"literature","difficulty":"medium","split":"test"}
+{"id":"q037","question":"In which novel is the drug soma used to control society?","answers":["Brave New World"],"category":"literature","difficulty":"medium","split":"calibration"}
+{"id":"q038","question":"Who wrote the poem The Waste Land?","answers":["T. S. Eliot","TS Eliot","Eliot"],"category":"literature","difficulty":"hard","split":"test"}
+{"id":"q039","question":"Who narrates The Great Gatsby?","answers":["Nick Carraway","Carraway"],"category":"literature","difficulty":"medium","split":"calibration"}
+{"id":"q040","question":"Which novel begins with the words Call me Ishmael?","answers":["Moby-Dick","Moby Dick"],"category":"literature","difficulty":"easy","split":"test"}
+{"id":"q041","question":"What is the square root of 144?","answers":["12","twelve"],"category":"mathematics","difficulty":"easy","split":"calibration"}
+{"id":"q042","question":"How many degrees are in the interior angles of a triangle?","answers":["180","one hundred eighty","180 degrees"],"category":"mathematics","difficulty":"easy","split":"test"}
+{"id":"q043","question":"What is the first prime number after 97?","answers":["101","one hundred one"],"category":"mathematics","difficulty":"medium","split":"calibration"}
+{"id":"q044","question":"What is the derivative of x squared with respect to x?","answers":["2x","two x"],"category":"mathematics","difficulty":"easy","split":"test"}
+{"id":"q045","question":"What is decimal 13 written in binary?","answers":["1101","one one zero one"],"category":"mathematics","difficulty":"medium","split":"calibration"}
+{"id":"q046","question":"What is the determinant of a three-by-three identity matrix?","answers":["1","one"],"category":"mathematics","difficulty":"medium","split":"test"}
+{"id":"q047","question":"What is a twelve-sided polygon called?","answers":["dodecagon"],"category":"mathematics","difficulty":"medium","split":"calibration"}
+{"id":"q048","question":"What is seven factorial?","answers":["5040","five thousand forty"],"category":"mathematics","difficulty":"medium","split":"test"}
+{"id":"q049","question":"What is the value of Euler's identity e to the i pi plus one?","answers":["0","zero"],"category":"mathematics","difficulty":"hard","split":"calibration"}
+{"id":"q050","question":"What is the greatest common divisor of 84 and 126?","answers":["42","forty two"],"category":"mathematics","difficulty":"medium","split":"test"}
+{"id":"q051","question":"Who created the Linux kernel?","answers":["Linus Torvalds","Torvalds"],"category":"computing","difficulty":"easy","split":"calibration"}
+{"id":"q052","question":"What standard phrase describes HTTP status code 404?","answers":["Not Found","404 Not Found"],"category":"computing","difficulty":"easy","split":"test"}
+{"id":"q053","question":"Which data structure follows first in, first out order?","answers":["queue","a queue"],"category":"computing","difficulty":"easy","split":"calibration"}
+{"id":"q054","question":"Which programming language was created by Guido van Rossum?","answers":["Python"],"category":"computing","difficulty":"easy","split":"test"}
+{"id":"q055","question":"Which SQL command removes an entire table definition?","answers":["DROP","DROP TABLE"],"category":"computing","difficulty":"medium","split":"calibration"}
+{"id":"q056","question":"Which protocol introduced public-key exchange over an insecure channel?","answers":["Diffie-Hellman","Diffie Hellman"],"category":"computing","difficulty":"hard","split":"test"}
+{"id":"q057","question":"Which Git command copies a remote repository to a local machine?","answers":["git clone","clone"],"category":"computing","difficulty":"easy","split":"calibration"}
+{"id":"q058","question":"How many bits are in an IPv4 address?","answers":["32","thirty two","32 bits"],"category":"computing","difficulty":"easy","split":"test"}
+{"id":"q059","question":"Which algorithm finds shortest paths from one source when edge weights are nonnegative?","answers":["Dijkstra's algorithm","Dijkstra algorithm","Dijkstra"],"category":"computing","difficulty":"medium","split":"calibration"}
+{"id":"q060","question":"Which company originally developed the Go programming language?","answers":["Google"],"category":"computing","difficulty":"medium","split":"test"}
+{"id":"q061","question":"What is the largest animal known to have lived?","answers":["blue whale"],"category":"nature","difficulty":"easy","split":"calibration"}
+{"id":"q062","question":"What is the fastest land animal?","answers":["cheetah"],"category":"nature","difficulty":"easy","split":"test"}
+{"id":"q063","question":"Name one egg-laying mammal native to Australia.","answers":["platypus","echidna"],"category":"nature","difficulty":"easy","split":"calibration"}
+{"id":"q064","question":"What is a group of lions called?","answers":["pride","a pride"],"category":"nature","difficulty":"easy","split":"test"}
+{"id":"q065","question":"Which type of tree produces acorns?","answers":["oak","oak tree"],"category":"nature","difficulty":"easy","split":"calibration"}
+{"id":"q066","question":"Which pigment makes most plant leaves appear green?","answers":["chlorophyll"],"category":"nature","difficulty":"easy","split":"test"}
+{"id":"q067","question":"Into which adult animal does a caterpillar usually metamorphose?","answers":["butterfly","moth"],"category":"nature","difficulty":"easy","split":"calibration"}
+{"id":"q068","question":"What is the largest living species of shark?","answers":["whale shark"],"category":"nature","difficulty":"medium","split":"test"}
+{"id":"q069","question":"Which carnivorous marsupial is named after Tasmania?","answers":["Tasmanian devil"],"category":"nature","difficulty":"medium","split":"calibration"}
+{"id":"q070","question":"Which bird is able to fly backwards?","answers":["hummingbird","hummingbirds"],"category":"nature","difficulty":"medium","split":"test"}
+{"id":"q071","question":"Who painted the Mona Lisa?","answers":["Leonardo da Vinci","da Vinci","Leonardo"],"category":"arts","difficulty":"easy","split":"calibration"}
+{"id":"q072","question":"Who composed the Fifth Symphony whose opening motif is often described as short-short-short-long?","answers":["Ludwig van Beethoven","Beethoven"],"category":"arts","difficulty":"easy","split":"test"}
+{"id":"q073","question":"Which painting by Salvador Dali features melting clocks?","answers":["The Persistence of Memory","Persistence of Memory"],"category":"arts","difficulty":"medium","split":"calibration"}
+{"id":"q074","question":"Which common keyboard instrument usually has 88 keys?","answers":["piano"],"category":"arts","difficulty":"easy","split":"test"}
+{"id":"q075","question":"In which Mozart opera does the Queen of the Night appear?","answers":["The Magic Flute","Magic Flute"],"category":"arts","difficulty":"medium","split":"calibration"}
+{"id":"q076","question":"What is the Japanese art of paper folding called?","answers":["origami"],"category":"arts","difficulty":"easy","split":"test"}
+{"id":"q077","question":"Who sculpted the Renaissance marble statue David in Florence?","answers":["Michelangelo","Michelangelo Buonarroti"],"category":"arts","difficulty":"easy","split":"calibration"}
+{"id":"q078","question":"Who composed The Four Seasons?","answers":["Antonio Vivaldi","Vivaldi"],"category":"arts","difficulty":"easy","split":"test"}
+{"id":"q079","question":"Which partner dance originated along the Rio de la Plata?","answers":["tango","Argentine tango"],"category":"arts","difficulty":"medium","split":"calibration"}
+{"id":"q080","question":"Who painted Guernica?","answers":["Pablo Picasso","Picasso"],"category":"arts","difficulty":"easy","split":"test"}
+{"id":"q081","question":"What is the currency of Japan?","answers":["yen","Japanese yen"],"category":"general","difficulty":"easy","split":"calibration"}
+{"id":"q082","question":"What is the official and most widely spoken language of Brazil?","answers":["Portuguese"],"category":"general","difficulty":"easy","split":"test"}
+{"id":"q083","question":"How many pieces does each player start with in chess?","answers":["16","sixteen"],"category":"general","difficulty":"easy","split":"calibration"}
+{"id":"q084","question":"How many rings are on the Olympic symbol?","answers":["5","five"],"category":"general","difficulty":"easy","split":"test"}
+{"id":"q085","question":"How is 49 written in Roman numerals?","answers":["XLIX"],"category":"general","difficulty":"medium","split":"calibration"}
+{"id":"q086","question":"Which month contains leap day?","answers":["February"],"category":"general","difficulty":"easy","split":"test"}
+{"id":"q087","question":"Who is the Greek god of the sea?","answers":["Poseidon"],"category":"general","difficulty":"easy","split":"calibration"}
+{"id":"q088","question":"Diamond is a crystalline form of which chemical element?","answers":["carbon"],"category":"general","difficulty":"easy","split":"test"}
+{"id":"q089","question":"In which board game can a player buy Boardwalk?","answers":["Monopoly"],"category":"general","difficulty":"easy","split":"calibration"}
+{"id":"q090","question":"How many letters are in the modern English alphabet?","answers":["26","twenty six"],"category":"general","difficulty":"easy","split":"test"}
+{"id":"q091","question":"What is the capital of Burkina Faso?","answers":["Ouagadougou"],"category":"mixed-hard","difficulty":"hard","split":"calibration"}
+{"id":"q092","question":"What is the largest moon of Saturn?","answers":["Titan"],"category":"mixed-hard","difficulty":"medium","split":"test"}
+{"id":"q093","question":"Which enzyme unwinds the DNA double helix during replication?","answers":["helicase","DNA helicase"],"category":"mixed-hard","difficulty":"medium","split":"calibration"}
+{"id":"q094","question":"What collective name is given to the 1648 treaties that ended the Thirty Years' War?","answers":["Peace of Westphalia","Westphalia"],"category":"mixed-hard","difficulty":"hard","split":"test"}
+{"id":"q095","question":"Who wrote The Master and Margarita?","answers":["Mikhail Bulgakov","Bulgakov"],"category":"mixed-hard","difficulty":"hard","split":"calibration"}
+{"id":"q096","question":"What is the smallest perfect number?","answers":["6","six"],"category":"mixed-hard","difficulty":"medium","split":"test"}
+{"id":"q097","question":"Which internet protocol translates domain names into IP addresses?","answers":["DNS","Domain Name System"],"category":"mixed-hard","difficulty":"medium","split":"calibration"}
+{"id":"q098","question":"What type of animal is an axolotl?","answers":["salamander","a salamander","amphibian","an amphibian"],"category":"mixed-hard","difficulty":"medium","split":"test"}
+{"id":"q099","question":"Who painted The Arnolfini Portrait?","answers":["Jan van Eyck","van Eyck"],"category":"mixed-hard","difficulty":"hard","split":"calibration"}
+{"id":"q100","question":"Which country uses the quetzal as its currency?","answers":["Guatemala"],"category":"mixed-hard","difficulty":"hard","split":"test"}

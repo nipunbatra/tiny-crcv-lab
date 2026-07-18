@@ -1,0 +1,16 @@
+.DS_Store
+CRCV_Hallucination_Detection.docx
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+dist/
+*.tsbuildinfo
+work/
+outputs/*
+!outputs/.gitkeep
+!outputs/qwen05b_100/
+!outputs/qwen05b_100/**
+!outputs/qwen05b_base_100/
+!outputs/qwen05b_base_100/**
