@@ -20,11 +20,12 @@ raw saved inputs. The earlier 24-score sweep and HaluEval slice are available in
 one collapsed section. **Try it** performs inference inside the browser and
 exposes every raw per-token input.
 
-[Open the 20-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
-It uses Open Slide presenter controls, staged reveals, and morph transitions to
-follow one recorded wrong answer from tokenization through the transformer,
-token probabilities, hidden states, three detector calculations, calibration,
-and held-out benchmark results. Press **F** for fullscreen presentation mode.
+[Open the 42-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
+It defines the exact question-plus-answer detection task up front, shows real
+correct and wrong benchmark outputs, and works one held-out correct/wrong pair
+through tokenization, generation, four detector calculations, calibration, and
+held-out results. Every detector value in the worked example comes from the
+saved experiment traces. Press **F** for fullscreen presentation mode.
 
 This is a research prototype, not a production detector. The fresh comparison
 uses 300 questions for thresholds/probe fitting and reports results on 300 held

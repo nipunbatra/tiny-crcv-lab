@@ -1,8 +1,14 @@
 # Tiny CRCV Lab presentation
 
-The 20-page Open Slide deck lives at
+The 42-page Open Slide deck lives at
 `slides/tiny-hallucination-detector/index.tsx`. It is built into the parent
 project's `public/talk/` directory and published with the detector app.
+
+The deck is organized as a beginner-friendly numeric walkthrough: it fixes the
+task as judging a `(question, generated answer)` pair, introduces real dataset
+rows, traces one held-out correct/wrong pair through the model, and expands each
+detector score into its saved inputs and arithmetic before showing calibration
+and benchmark results.
 
 ## Getting started
 
