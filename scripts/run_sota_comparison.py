@@ -77,6 +77,11 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def repo_relative(path: Path) -> str:
+    """Return a stable repo-relative path for relative or absolute CLI inputs."""
+    return str(path.resolve().relative_to(ROOT))
+
+
 def optional_auroc(labels: list[int], scores: list[float]) -> float | None:
     return auroc(labels, scores) if len(set(labels)) == 2 else None
 
@@ -428,7 +433,11 @@ def render_report(metadata: dict[str, Any], metrics: dict[str, Any]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-key", choices=["instruct", "base"], required=True)
+    parser.add_argument(
+        "--model-key",
+        required=True,
+        help="Model key declared in the selected protocol.",
+    )
     parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--output-dir", type=Path)
@@ -442,8 +451,22 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     protocol = read_json(args.protocol)
-    model_spec = next(item for item in protocol["models"] if item["key"] == args.model_key)
-    output_dir = args.output_dir or ROOT / "outputs" / f"fresh_qa_qwen05b_{args.model_key}"
+    try:
+        model_spec = next(
+            item for item in protocol["models"] if item["key"] == args.model_key
+        )
+    except StopIteration as error:
+        available = ", ".join(item["key"] for item in protocol["models"])
+        raise ValueError(
+            f"model key {args.model_key!r} is not in the protocol; choose from {available}"
+        ) from error
+    legacy_output_name = (
+        f"fresh_qa_qwen05b_{args.model_key}"
+        if args.protocol.resolve() == DEFAULT_PROTOCOL.resolve()
+        else f"fresh_qa_{args.model_key}"
+    )
+    output_name = model_spec.get("output_name", legacy_output_name)
+    output_dir = args.output_dir or ROOT / "outputs" / output_name
     output_dir.mkdir(parents=True, exist_ok=True)
     progress_path = output_dir / "progress.jsonl"
     final_paths = [
@@ -465,6 +488,7 @@ def main() -> None:
         raise ValueError("selected rows must contain calibration and held-out examples")
     generator = WhiteBoxGenerator(
         model_spec["id"],
+        revision=model_spec.get("revision", "main"),
         device=args.device,
         prompt_style=model_spec["prompt_style"],
     )
@@ -473,13 +497,13 @@ def main() -> None:
 
     metadata = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "protocol": str(args.protocol.relative_to(ROOT)),
+        "protocol": repo_relative(args.protocol),
         "protocol_sha256": sha256(args.protocol),
-        "data": str(args.data.relative_to(ROOT)),
+        "data": repo_relative(args.data),
         "data_sha256": sha256(args.data),
         "model_key": args.model_key,
         "model_id": model_spec["id"],
-        "requested_revision": "main",
+        "requested_revision": model_spec.get("revision", "main"),
         "resolved_revision": generator.resolved_revision,
         "prompt_style": model_spec["prompt_style"],
         "device": generator.device,

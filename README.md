@@ -5,23 +5,24 @@ An inspectable experiment asking one question:
 > On short factual answers from a 0.49B open-weight model, does instability in
 > confidence × hidden-state movement predict which answers are wrong?
 
-**Result:** keep the cheap baseline. On a frozen follow-up with 600 fresh public
-questions, top-3 selected-token surprise reached 0.656 held-out AUROC for Qwen
-0.5B Instruct and 0.599 for Base. A P(False) self-check, a calibration-trained
-896→1 hidden-state probe, and three-answer semantic disagreement did not reliably
-improve it. CRCV and the earlier 24-score sweep remain below as exploratory work,
-not validated detector claims.
+**Result:** token uncertainty transfers across two small model families. On the
+same 300 held-out questions, token-surprise spread reached 0.706 AUROC for
+Qwen2.5-0.5B-Instruct and 0.731 for SmolLM2-360M-Instruct. The original frozen
+top-3 surprise baseline reached 0.656 and 0.715. CRCV transferred more weakly
+(0.634 / 0.588), while pure hidden-cosine movement did not. Treat every score as
+triage, not factual verification.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
 The default view explains the result in plain language; **Evidence** first shows
-the 12 headline baselines and then the complete 31-method audit on Instruct,
-Base, NQ-Open, TriviaQA, and TruthfulQA. It can reconstruct CRCV, sampled
+the cross-family replication, 12 headline baselines, and the complete 31-method
+audit on Qwen Instruct, SmolLM2 Instruct, Qwen Base, NQ-Open, TriviaQA, and
+TruthfulQA. It can reconstruct CRCV, sampled
 consistency, semantic-entropy, shallow-tree, logistic, probe, and token-level
 scores for any of the 600 questions from raw saved inputs. The earlier 100-row
 sweep and HaluEval slice remain in one collapsed section. **Try it** performs
 inference inside the browser and exposes every raw per-token input.
 
-[Open the 64-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
+[Open the 70-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
 It defines the exact question-plus-answer detection task up front, shows real
 correct and wrong benchmark outputs, and works one held-out correct/wrong pair
 through tokenization, generation, CRCV, eight other detector calculations,
@@ -35,8 +36,9 @@ out questions. Every answer, self-check probability, stochastic sample, pair
 judgment, probe contribution, and token-level signal is saved for audit.
 
 The same audit is available as a fully static browser app. It runs on GitHub
-Pages, uses Transformers.js with WebGPU (or WASM), and sends no prompt or model
-trace to an application server.
+Pages and sends no prompt or model trace to an application server. The live
+WebGPU/WASM console remains the separately verified Qwen path; the SmolLM2 panel
+exposes all saved benchmark traces and calculations.
 
 ## Run the browser lab
 
@@ -162,6 +164,34 @@ most interesting free follow-up; the Base result instead favors maximum token
 ambiguity. The disagreement is evidence against one checkpoint-independent
 magic score.
 
+### Prospective SmolLM2 cross-model replication
+
+Before generating any SmolLM2 answer, the checkpoint revision, chat prompt,
+generation settings, all 31 methods, calibration fits, thresholds, metrics, and
+transfer rule were frozen in
+`experiments/fresh_qa_600_smollm2_replication_protocol.json`. The 600 questions
+and prior Qwen results were already known, so this is prospective new-model
+evidence on reused data—not a second untouched-dataset confirmation.
+
+| Representative method | Qwen Instruct AUROC | SmolLM2 Instruct AUROC | Frozen transfer rule |
+|---|---:|---:|:---:|
+| Token-surprise spread | **0.706** | **0.731** | passes |
+| Maximum token entropy | 0.696 | 0.723 | passes |
+| Eight-feature trace logistic | 0.695 | 0.724 | passes |
+| Three-answer lexical disagreement | 0.717 | 0.691 | passes |
+| Worst-token surprise | 0.689 | 0.745 | passes |
+| Top-3 token surprise | 0.656 | 0.715 | passes |
+| CRCV mean | 0.634 | 0.588 | passes |
+| Mean hidden cosine change | 0.555 | 0.390 | **fails** |
+
+Twenty-five of 31 methods pass the predeclared direction rule: pooled AUROC
+above 0.5 for both models and at least two of three dataset slices above 0.5 for
+each model. Nineteen methods also have pooled 95% interval lower bounds above
+0.5 on both models. Surprise spread has the highest worst-model AUROC (0.706),
+so it is now the lead free candidate alongside the frozen top-3 anchor. Its
+paired improvement interval versus top-3 still crosses zero on SmolLM2; this is
+not a statistically established win.
+
 The three-sample lexical score adapts the consistency idea from
 [SelfCheckGPT](https://aclanthology.org/2023.emnlp-main.557/). The discrete
 semantic-entropy score is explicitly a budget proxy: the
@@ -278,6 +308,17 @@ HF_HUB_OFFLINE=1 uv run python scripts/run_sota_comparison.py \
 
 # Recompute the post-hoc 31-method audit from those frozen saved traces.
 uv run python scripts/evaluate_fast_baselines.py
+
+# Reproduce the cross-family run and its prospectively frozen 31-method audit.
+uv run python scripts/run_sota_comparison.py \
+  --protocol experiments/fresh_qa_600_smollm2_replication_protocol.json \
+  --model-key smollm2_instruct --device mps
+uv run python scripts/evaluate_fast_baselines.py \
+  --model smollm2_instruct \
+  --output-dir outputs/fresh_qa_smollm2_360m_instruct \
+  --protocol experiments/fresh_qa_600_smollm2_replication_protocol.json \
+  --seed 20260802
+uv run python scripts/evaluate_cross_model_replication.py
 ```
 
 Omit `HF_HUB_OFFLINE=1` on the first run so Hugging Face can download the model.

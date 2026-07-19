@@ -18,15 +18,19 @@ import haluevalRaw from '../outputs/halueval_qwen05b_100/predictions.jsonl?raw';
 import haluevalMetricsJson from '../outputs/halueval_qwen05b_100/metrics.json';
 import freshInstructMetricsJson from '../outputs/fresh_qa_qwen05b_instruct/metrics.json';
 import freshBaseMetricsJson from '../outputs/fresh_qa_qwen05b_base/metrics.json';
+import freshSmolMetricsJson from '../outputs/fresh_qa_smollm2_360m_instruct/metrics.json';
+import crossModelReplicationJson from '../outputs/fresh_qa_cross_model_replication.json';
 import shallowTreeJson from '../outputs/shallow_tree_results.json';
 import questionTokensJson from './data/question-tokens.json';
 import { FreshBenchmark, FreshSummary } from './FreshEvidence';
 import { parseJsonl, rollingSampleStd, tokenCalculations } from './lib/metrics';
 import type {
   BenchmarkMetrics,
+  CrossModelReplication,
   FeatureKey,
   Features,
   FreshComparisonMetrics,
+  FreshModelKind,
   HaluEvalMetrics,
   HaluEvalPrediction,
   LiveToken,
@@ -48,10 +52,12 @@ const benchmarks: Record<ModelKind, BenchmarkMetrics> = {
 const haluevalPredictions = parseJsonl<HaluEvalPrediction>(haluevalRaw);
 const haluevalMetrics = haluevalMetricsJson as unknown as HaluEvalMetrics;
 const shallowTrees = shallowTreeJson as unknown as ShallowTreeResults;
-const freshMetrics: Record<ModelKind, FreshComparisonMetrics> = {
-  instruct: freshInstructMetricsJson as unknown as FreshComparisonMetrics,
-  base: freshBaseMetricsJson as unknown as FreshComparisonMetrics,
+const freshMetrics: Record<FreshModelKind, FreshComparisonMetrics> = {
+  qwen_instruct: freshInstructMetricsJson as unknown as FreshComparisonMetrics,
+  smollm2_instruct: freshSmolMetricsJson as unknown as FreshComparisonMetrics,
+  qwen_base: freshBaseMetricsJson as unknown as FreshComparisonMetrics,
 };
+const crossModelReplication = crossModelReplicationJson as unknown as CrossModelReplication;
 const questionTokens = questionTokensJson as Record<string, Array<{ id: number; piece: string }>>;
 type AppView = 'overview' | 'explore' | 'live';
 
@@ -314,7 +320,7 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
             Slides
           </a>
         </nav>
-        {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">600 fresh questions · two checkpoints · one cautious recommendation</span> : <ModelToggle value={model} onChange={onModel} />}
+        {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">600 questions · two model families · 31 inspectable scores</span> : <div className="flex items-center gap-3"><span className="hidden text-[10px] uppercase tracking-[.08em] text-[#69716d] xl:block">Qwen live + legacy</span><ModelToggle value={model} onChange={onModel} /></div>}
       </div>
     </header>
   );
@@ -325,10 +331,10 @@ function Hero({ onExplore, onRun }: { onExplore: () => void; onRun: () => void }
     <section id="top" className="grid-noise border-b hairline">
       <div className="shell grid gap-10 py-14 lg:grid-cols-[1.08fr_.92fr] lg:py-20">
         <div className="max-w-3xl">
-          <p className="eyebrow mb-5">Final recommendation</p>
-          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Keep the cheap baseline.</h1>
+          <p className="eyebrow mb-5">Cross-model result</p>
+          <h1 className="display max-w-3xl text-[clamp(3rem,6.5vw,6.5rem)] font-[650]">Token uncertainty transfers.</h1>
           <p className="mt-7 max-w-2xl text-lg leading-8 text-[#505955]">
-            On 600 fresh public questions, neither self-judgment, a hidden-state probe, nor three-answer disagreement reliably beat top-3 token surprise. Use that score only to rank answers for review—not to declare facts false.
+            On the same 300 held-out questions, simple surprise statistics rank wrong answers above correct ones for both Qwen2.5-0.5B-Instruct and SmolLM2-360M-Instruct. The signal is useful for review order—not for declaring facts false.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <button onClick={onRun} className="focus-ring inline-flex items-center gap-2 bg-[#df4c2f] px-5 py-3 font-semibold text-white">Try one question <Cpu size={18} /></button>
@@ -336,17 +342,17 @@ function Hero({ onExplore, onRun }: { onExplore: () => void; onRun: () => void }
           </div>
         </div>
         <div className="card self-end p-6 lg:p-8">
-          <p className="eyebrow">Fresh-test recommendation</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">Top-3 token surprise</h2>
-          <p className="mono mt-4 bg-[#18211d] p-4 text-sm text-white">mean(top 3 of −ln p(chosen token))</p>
+          <p className="eyebrow">Cross-model recommendation</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em]">Surprise spread + top-3</h2>
+          <p className="mono mt-4 bg-[#18211d] p-4 text-sm leading-6 text-white">spread = sample-SDₜ(−ln pₜ)<br />top-3 = mean(largest 3 of −ln pₜ)</p>
           <div className="mt-6 grid grid-cols-2 gap-px bg-[#d7d3c9]">
-            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">Instruct AUROC</p><p className="mono mt-1 text-2xl">0.656</p></div>
-            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">Base AUROC</p><p className="mono mt-1 text-2xl">0.599</p></div>
+            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">Qwen spread AUROC</p><p className="mono mt-1 text-2xl">0.706</p></div>
+            <div className="bg-[#fffdf8] p-4"><p className="text-[10px] uppercase text-[#69716d]">SmolLM2 spread AUROC</p><p className="mono mt-1 text-2xl">0.731</p></div>
           </div>
           <div className="mt-5 space-y-3 text-sm leading-6">
-            <p><strong>Always add:</strong> answer length as a confound check.</p>
-            <p><strong>Optional:</strong> P(False) as a second diagnostic; it was descriptively best on Base but did not reliably improve the baseline.</p>
-            <p><strong>Skip for v0:</strong> the supervised probe and three-sample score.</p>
+            <p><strong>Use:</strong> surprise spread as the lead free candidate.</p>
+            <p><strong>Keep:</strong> top-3 surprise as the frozen comparison anchor.</p>
+            <p><strong>Calibrate:</strong> fit the review cutoff separately for each model.</p>
           </div>
           <p className="mt-5 bg-[#fbe9e2] p-3 text-xs leading-5 text-[#6f2d20]">The labels are strict alias matches, not human factuality judgments. A high score means “review this,” not “this is false.”</p>
         </div>
@@ -1029,10 +1035,10 @@ export default function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <Header model={model} onModel={setModel} view={view} onView={changeView} />
     <main id="main-content">
-      {view === 'overview' && <><Hero onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><FreshSummary metrics={freshMetrics} onExplore={() => changeView('explore')} /></>}
-      {view === 'explore' && <><FreshBenchmark model={model} metrics={freshMetrics} /><EarlierExperiments model={model} /></>}
+      {view === 'overview' && <><Hero onExplore={() => changeView('explore')} onRun={() => changeView('live')} /><FreshSummary metrics={freshMetrics} replication={crossModelReplication} onExplore={() => changeView('explore')} /></>}
+      {view === 'explore' && <><FreshBenchmark metrics={freshMetrics} replication={crossModelReplication} /><EarlierExperiments model={model} /></>}
       {view === 'live' && <><LiveLab model={model} /><MethodNote /></>}
     </main>
-    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>600 fresh questions × two checkpoints · calibration separated from test</span></div></footer>
+    <footer className="bg-[#18211d] py-7 text-[#aeb7b2]"><div className="shell flex flex-wrap justify-between gap-3 text-xs"><span>Tiny CRCV Lab · inspectable research prototype</span><span>600 questions × two model families + Base stress test · calibration separated from test</span></div></footer>
   </>;
 }

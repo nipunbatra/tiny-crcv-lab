@@ -15,4 +15,9 @@ for (const model of ['instruct', 'base']) {
   );
 }
 
+copyFileSync(
+  resolve(root, 'outputs/fresh_qa_smollm2_360m_instruct/predictions.jsonl'),
+  resolve(destination, 'fresh_qa_smollm2_360m_instruct.jsonl'),
+);
+
 console.log('Prepared lazy-loaded fresh QA traces in public/data.');

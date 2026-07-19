@@ -1,4 +1,5 @@
 export type ModelKind = 'instruct' | 'base';
+export type FreshModelKind = 'qwen_instruct' | 'smollm2_instruct' | 'qwen_base';
 
 export type FreshMethodKey =
   | 'crcv_mean'
@@ -94,6 +95,40 @@ export interface FreshComparisonMetrics {
     total_greedy_generation_seconds: number;
     answers_at_token_limit: number;
   };
+}
+
+export interface CrossModelReplicationRow {
+  key: FreshMethodKey;
+  display_name: string;
+  family: string;
+  qwen_auroc: number;
+  qwen_auroc_ci_95: [number, number];
+  smollm2_auroc: number;
+  smollm2_auroc_ci_95: [number, number];
+  qwen_slices_above_chance: number;
+  smollm2_slices_above_chance: number;
+  replicated: boolean;
+  both_ci_lower_above_chance: boolean;
+  worst_model_auroc: number;
+}
+
+export interface CrossModelReplication {
+  status: string;
+  rule: string;
+  models: Record<'qwen_instruct' | 'smollm2_instruct', {
+    id: string;
+    parameters: string;
+    held_out_examples: number;
+    held_out_incorrect: number;
+  }>;
+  method_count: number;
+  replicated_method_count: number;
+  replicated_methods: FreshMethodKey[];
+  both_ci_lower_above_chance: FreshMethodKey[];
+  best_worst_model_method: FreshMethodKey;
+  best_worst_model_auroc: number;
+  rows: CrossModelReplicationRow[];
+  interpretation: string;
 }
 
 export interface FreshPrediction {

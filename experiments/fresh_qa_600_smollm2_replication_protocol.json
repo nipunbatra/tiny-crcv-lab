@@ -1,0 +1,166 @@
+{
+  "status": "predeclared cross-model replication before downloading the checkpoint, generating SmolLM2 answers, or inspecting any SmolLM2 aggregate score",
+  "created_date": "2026-07-19",
+  "research_question": "Do the same cheap reference-free risk signals transfer from Qwen2.5-0.5B-Instruct to a comparably small model from a different family?",
+  "evidence_boundary": {
+    "prospective": "The SmolLM2 checkpoint, prompt, generation settings, features, trained baselines, thresholds, and evaluation are frozen before inspecting SmolLM2 outputs or results.",
+    "not_prospective": "The 600 questions, lexical labels, split, and prior Qwen results were already inspected. This is a new-model replication on an existing question set, not a second untouched-data confirmation.",
+    "comparison": "Primary comparison is Qwen2.5-0.5B-Instruct versus SmolLM2-360M-Instruct. Qwen2.5-0.5B Base remains a separate instruction-tuning stress test."
+  },
+  "data": {
+    "path": "data/fresh_qa_600.jsonl",
+    "questions": 600,
+    "calibration_questions": 300,
+    "held_out_questions": 300,
+    "datasets": [
+      "google-research-datasets/nq_open",
+      "mandarjoshi/trivia_qa rc.nocontext",
+      "truthfulqa/truthful_qa generation"
+    ],
+    "split": "unchanged question-level 300 calibration / 300 held-out split from experiments/fresh_qa_600_protocol.json"
+  },
+  "models": [
+    {
+      "key": "smollm2_instruct",
+      "id": "HuggingFaceTB/SmolLM2-360M-Instruct",
+      "revision": "c38281e01d0c0b0c36eac2f5bcb5b51fa2e803fc",
+      "prompt_style": "instruct",
+      "output_name": "fresh_qa_smollm2_360m_instruct",
+      "parameters": "360M",
+      "architecture_family": "Llama",
+      "license": "Apache-2.0"
+    }
+  ],
+  "generation": {
+    "primary_decoding": "greedy with no repetition penalty",
+    "instruct_prompt": "System: Answer factual questions directly. If uncertain, give your best answer. Keep the response brief. User: {question} Give only the short answer, with no explanation.",
+    "max_new_tokens": 24,
+    "stochastic_samples": 3,
+    "sampling_temperature": 1.0,
+    "sampling_top_k": 50,
+    "sampling_top_p": 0.95,
+    "sampling_seed": 2026072500
+  },
+  "label": {
+    "positive": "the normalized greedy answer contains none of the normalized accepted answer aliases",
+    "negative": "at least one normalized accepted alias occurs as a whole phrase",
+    "warning": "This transparent lexical label can miss semantically correct paraphrases and must be audited."
+  },
+  "methods": {
+    "top3_token_surprise": {
+      "role": "frozen primary baseline",
+      "formula": "mean of the three largest -ln p(chosen token) values from the greedy generation",
+      "training": "none"
+    },
+    "p_true": {
+      "role": "one-extra-pass self-assessment baseline",
+      "formula": "p(No) / (p(Yes) + p(No)) for a fixed correctness-verification prompt",
+      "training": "none"
+    },
+    "hidden_logistic_probe": {
+      "role": "small supervised internal-state baseline",
+      "input": "mean final-layer state aligned to greedy answer-token decisions; dimensionality is read from the checkpoint",
+      "standardization": "per-coordinate mean and population standard deviation from calibration only; standard deviations below 1e-6 become 1",
+      "model": "one linear layer with sigmoid",
+      "optimizer": "full-batch Adam, learning rate 0.03, 800 steps, weight decay 0.01",
+      "loss": "class-balanced binary cross entropy",
+      "seed": 20260801,
+      "selection": "no hyperparameter search"
+    },
+    "semantic_disagreement_3": {
+      "role": "small multi-sample semantic-consistency baseline",
+      "formula": "mean of three pairwise p(No)/(p(Yes)+p(No)) same-answer judgments over three stochastic answers",
+      "judge": "the same SmolLM2 checkpoint under a fixed binary equivalence prompt",
+      "training": "none"
+    },
+    "answer_tokens": {
+      "role": "mandatory length-confound control",
+      "formula": "number of greedy answer tokens",
+      "training": "none"
+    }
+  },
+  "scalar_trace_audit": {
+    "selection": "report all 24 already-defined answer-level trace features; do not select them by SmolLM2 held-out performance",
+    "features": [
+      "crcv_mean",
+      "crcv_max",
+      "mean_nll",
+      "confidence_variance_mean",
+      "shift_variance_mean",
+      "answer_tokens",
+      "top3_token_surprise",
+      "worst_token_surprise",
+      "surprise_spread",
+      "top4_token_surprise",
+      "skip_first_top3_surprise",
+      "surprise_shift_top3",
+      "uncertainty_shift_top3",
+      "token_entropy_top3",
+      "token_entropy_mean",
+      "token_entropy_max",
+      "token_ambiguity_top3",
+      "token_ambiguity_mean",
+      "token_ambiguity_max",
+      "hidden_cosine_mean",
+      "hidden_cosine_max",
+      "hidden_cosine_top3",
+      "hidden_norm_mean",
+      "hidden_norm_variability"
+    ]
+  },
+  "added_methods": {
+    "lexical_disagreement_3": {
+      "formula": "mean over the three sample pairs of 1 - Jaccard(normalized word-token sets)",
+      "training": "none"
+    },
+    "discrete_semantic_entropy_3": {
+      "formula": "-sum_c (n_c / 3) ln(n_c / 3), using connected same-answer components at normalized p(No) < 0.5",
+      "training": "none",
+      "warning": "three-sample budget proxy, not the full published semantic-entropy setup"
+    },
+    "trace_logistic_8": {
+      "features": [
+        "top3_token_surprise",
+        "mean_nll",
+        "token_entropy_top3",
+        "token_ambiguity_top3",
+        "crcv_mean",
+        "surprise_shift_top3",
+        "hidden_cosine_top3",
+        "answer_tokens"
+      ],
+      "standardization": "calibration only",
+      "model": "one linear layer with sigmoid",
+      "optimizer": "full-batch Adam, learning rate 0.03, 800 steps, weight decay 0.01, class-balanced binary cross entropy",
+      "seeds": {
+        "smollm2_instruct": 20260802
+      },
+      "selection": "no feature or hyperparameter search"
+    },
+    "trace_tree_depth2": {
+      "features": "the same fixed eight features as trace_logistic_8",
+      "model": "deterministic CART-style tree, maximum depth 2, minimum 20 calibration rows per leaf, stable tie breaks",
+      "training": "calibration only"
+    }
+  },
+  "evaluation": {
+    "method_selection": "none; report every predeclared method",
+    "classification_threshold": "maximize macro-F1 on the pooled 300-question calibration split, then freeze",
+    "primary_metric": "held-out AUROC",
+    "secondary_metrics": [
+      "bootstrap 95% AUROC interval",
+      "paired bootstrap AUROC difference versus top-3 token surprise",
+      "average precision",
+      "macro-F1 at frozen threshold",
+      "confusion matrix",
+      "AURAC",
+      "accuracy at 90%, 80%, and 70% coverage after rejecting highest-risk answers",
+      "incremental latency"
+    ],
+    "slices": "pooled held-out set and each dataset separately",
+    "bootstrap_seed": 20260803,
+    "bootstrap_samples": 2000
+  },
+  "interpretation_rule": "A signal is called replicated only if its held-out AUROC is above 0.5 in both Qwen2.5-Instruct and SmolLM2-Instruct, and directionally consistent on at least two of three dataset slices in each model. A method is called better than top-3 surprise within SmolLM2 only if its paired bootstrap AUROC-difference interval excludes zero above zero.",
+  "interpretation": "This prospectively tests new-model transfer on an existing question set. It does not establish state of the art, a new-data replication, or factual verification. Model, prompt, labels, sampling budget, and split remain mandatory context."
+}

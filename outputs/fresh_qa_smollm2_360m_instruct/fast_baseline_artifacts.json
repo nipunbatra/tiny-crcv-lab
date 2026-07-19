@@ -1,0 +1,82 @@
+{
+  "model": "smollm2_instruct",
+  "feature_order": [
+    "top3_token_surprise",
+    "mean_nll",
+    "token_entropy_top3",
+    "token_ambiguity_top3",
+    "crcv_mean",
+    "surprise_shift_top3",
+    "hidden_cosine_top3",
+    "answer_tokens"
+  ],
+  "logistic": {
+    "calibration_mean": [
+      1.2570689916610718,
+      0.5155866146087646,
+      0.27168509364128113,
+      0.7826874256134033,
+      0.25789591670036316,
+      0.9518357515335083,
+      0.8239651918411255,
+      13.640000343322754
+    ],
+    "calibration_scale": [
+      0.6608214974403381,
+      0.3385254740715027,
+      0.12634870409965515,
+      0.2121446579694748,
+      0.11546215415000916,
+      0.6508218050003052,
+      0.18966954946517944,
+      6.763905048370361
+    ],
+    "weights": [
+      0.5661693215370178,
+      -0.07085131853818893,
+      0.2552672326564789,
+      -0.17195288836956024,
+      -0.014138644561171532,
+      0.3165866434574127,
+      -0.07545636594295502,
+      0.011746497824788094
+    ],
+    "bias": 0.25938183069229126,
+    "training_loss": 0.6176806533954633,
+    "steps": 800,
+    "seed": 20260802
+  },
+  "tree": {
+    "count": 300,
+    "positives": 258,
+    "hallucination_probability": 0.86,
+    "feature": "top3_token_surprise",
+    "threshold": 0.3906359485132077,
+    "left_if": "value <= threshold",
+    "left": {
+      "count": 22,
+      "positives": 11,
+      "hallucination_probability": 0.5
+    },
+    "right_if": "value > threshold",
+    "right": {
+      "count": 278,
+      "positives": 247,
+      "hallucination_probability": 0.8884892086330936,
+      "feature": "top3_token_surprise",
+      "threshold": 0.8444885776298987,
+      "left_if": "value <= threshold",
+      "left": {
+        "count": 69,
+        "positives": 54,
+        "hallucination_probability": 0.782608695652174
+      },
+      "right_if": "value > threshold",
+      "right": {
+        "count": 209,
+        "positives": 193,
+        "hallucination_probability": 0.9234449760765551
+      }
+    }
+  }
+}

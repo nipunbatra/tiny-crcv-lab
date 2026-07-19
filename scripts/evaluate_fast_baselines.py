@@ -184,7 +184,7 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
 
 
-def method_catalog() -> dict[str, dict[str, str]]:
+def method_catalog(hidden_dimensions: int) -> dict[str, dict[str, str]]:
     catalog = {
         key: {
             "display_name": SCORES[key],
@@ -194,7 +194,10 @@ def method_catalog() -> dict[str, dict[str, str]]:
         }
         for key in SCALAR_METHOD_ORDER
     }
-    catalog.update(EXTRA_METHODS)
+    catalog.update({key: dict(value) for key, value in EXTRA_METHODS.items()})
+    catalog["hidden_logistic_probe"]["implementation_note"] = (
+        f"{hidden_dimensions} final-layer mean-hidden values; calibration-only fit."
+    )
     return catalog
 
 
@@ -497,11 +500,13 @@ def process_model(
     rows = read_jsonl(predictions_path)
     if len(rows) != 600:
         raise ValueError(f"expected 600 rows in {predictions_path}, got {len(rows)}")
+    with np.load(output_dir / "hidden_probe.npz") as probe_artifact:
+        hidden_dimensions = int(probe_artifact["mean_hidden"].shape[1])
     artifact, timings = attach_scores(rows, model=model, seed=seed)
     metrics = evaluate(
         rows,
         protocol=protocol,
-        catalog=method_catalog(),
+        catalog=method_catalog(hidden_dimensions),
         timing=timings,
     )
     previous = read_json(frozen_metrics_path)
@@ -519,21 +524,40 @@ def process_model(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", choices=["instruct", "base", "both"], default="both")
+    parser.add_argument(
+        "--model",
+        default="both",
+        help="Legacy built-in model key, 'both', or a label used with --output-dir.",
+    )
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--protocol", type=Path, default=PROTOCOL_PATH)
+    parser.add_argument("--seed", type=int)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    protocol = read_json(PROTOCOL_PATH)
+    protocol = read_json(args.protocol)
     seeds = protocol["added_methods"]["trace_logistic_8"]["seeds"]
-    selected = MODEL_DIRS if args.model == "both" else {args.model: MODEL_DIRS[args.model]}
+    if args.output_dir is not None:
+        if args.model == "both":
+            raise ValueError("--output-dir requires a single --model label")
+        selected = {args.model: args.output_dir}
+    elif args.model == "both":
+        selected = MODEL_DIRS
+    else:
+        if args.model not in MODEL_DIRS:
+            raise ValueError(
+                f"unknown built-in model {args.model!r}; pass --output-dir for a new model"
+            )
+        selected = {args.model: MODEL_DIRS[args.model]}
     for model, output_dir in selected.items():
+        seed = args.seed if args.seed is not None else int(seeds[model])
         process_model(
             model,
             output_dir,
             protocol=protocol,
-            seed=int(seeds[model]),
+            seed=seed,
         )
 
 

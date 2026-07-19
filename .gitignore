@@ -7,6 +7,7 @@ __pycache__/
 node_modules/
 dist/
 public/data/fresh_qa_qwen05b_*.jsonl
+public/data/fresh_qa_smollm2_*.jsonl
 public/talk/
 *.tsbuildinfo
 work/
@@ -32,3 +33,7 @@ outputs/*
 !outputs/fresh_qa_qwen05b_base/predictions.jsonl
 !outputs/fresh_qa_qwen05b_base/hidden_probe.npz
 !outputs/fresh_qa_qwen05b_base/report.md
+!outputs/fresh_qa_smollm2_360m_instruct/
+!outputs/fresh_qa_smollm2_360m_instruct/**
+!outputs/fresh_qa_cross_model_replication.json
+!outputs/fresh_qa_cross_model_replication.md

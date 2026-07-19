@@ -2350,6 +2350,152 @@ const Cost: Page = () => (
   </PageFrame>
 );
 
+const ReplicationWhy: Page = () => (
+  <PageFrame
+    eyebrow="A stronger validation question"
+    title={<>Does the signal survive a <Accent>different model family?</Accent></>}
+    chapter="replication · why"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56 }}>
+      <div style={{ minHeight: 470, padding: 38, background: C.panel, borderTop: '5px solid ' + C.ink }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.muted }}>ALREADY TESTED</div>
+        <div style={{ marginTop: 22, fontSize: 40, fontWeight: 730 }}>Qwen Instruct ↔ Qwen Base</div>
+        <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.5, color: C.muted }}>Same architecture and tokenizer. Useful for instruction-tuning stress—but not an independent family.</div>
+        <div style={{ marginTop: 28 }}><Pill>0.5B · 896 hidden values</Pill></div>
+      </div>
+      <div style={{ minHeight: 470, padding: 38, background: C.safeSoft, borderTop: '5px solid ' + C.safe }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.safe }}>NEW REPLICATION</div>
+        <div style={{ marginTop: 22, fontSize: 40, fontWeight: 730 }}>Qwen Instruct ↔ SmolLM2 Instruct</div>
+        <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.5, color: C.muted }}>Different Llama-family stack and tokenizer; still small enough for on-device use.</div>
+        <div style={{ marginTop: 28 }}><Pill tone="safe">360M · 960 hidden values</Pill></div>
+      </div>
+    </div>
+    <div style={{ marginTop: 34, fontSize: 27, lineHeight: 1.4 }}>Same detector definitions. Same 600 questions. New model outputs.</div>
+  </PageFrame>
+);
+
+const ReplicationProtocol: Page = () => (
+  <PageFrame
+    eyebrow="Frozen before any SmolLM2 answer"
+    title={<>A prospective model replication—<Accent>not a new-data replication.</Accent></>}
+    chapter="replication · protocol"
+    titleSize={61}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 30 }}>
+      <div style={{ minHeight: 410, padding: 34, background: C.panel, borderTop: '5px solid ' + C.safe }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>01 · FREEZE</div>
+        <div style={{ marginTop: 22, fontSize: 33, fontWeight: 720 }}>Checkpoint + prompt</div>
+        <div style={{ marginTop: 18, fontSize: 25, lineHeight: 1.48, color: C.muted }}>Official revision c38281e… · greedy 24-token answer · three stochastic samples.</div>
+      </div>
+      <div style={{ minHeight: 410, padding: 34, background: C.panel, borderTop: '5px solid ' + C.safe }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>02 · FREEZE</div>
+        <div style={{ marginTop: 22, fontSize: 33, fontWeight: 720 }}>All 31 scores</div>
+        <div style={{ marginTop: 18, fontSize: 25, lineHeight: 1.48, color: C.muted }}>Twenty-four trace scalars · seven extra baselines · fixed eight-feature logistic and depth-2 tree.</div>
+      </div>
+      <div style={{ minHeight: 410, padding: 34, background: C.accentSoft, borderTop: '5px solid ' + C.accent }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>KNOWN ALREADY</div>
+        <div style={{ marginTop: 22, fontSize: 33, fontWeight: 720 }}>Questions + Qwen results</div>
+        <div style={{ marginTop: 18, fontSize: 25, lineHeight: 1.48, color: C.muted }}>The 600 questions and prior Qwen outcomes were inspected. This tests model transfer only.</div>
+      </div>
+    </div>
+    <div style={{ marginTop: 34, padding: 25, background: C.dark, color: C.paper, fontSize: 27, lineHeight: 1.4 }}><span style={{ fontFamily: mono, color: C.darkMuted }}>RULE · </span> pooled AUROC &gt; .5 on both models + at least two of three slices &gt; .5 for each.</div>
+  </PageFrame>
+);
+
+const ReplicationResults: Page = () => (
+  <PageFrame
+    eyebrow="Held-out AUROC · 300 answers per model"
+    title={<>Token-surprise signals <Accent>transfer.</Accent></>}
+    chapter="replication · results"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.25fr .52fr .52fr .48fr', gap: 22, minHeight: 36, padding: '0 18px', fontFamily: mono, fontSize: 17, color: C.muted }}><div>METHOD</div><div>QWEN</div><div>SMOLLM2</div><div>RULE</div></div>
+    <SliceRow method="Token-surprise spread" nq="0.706" trivia="0.731" truthful="yes" />
+    <SliceRow method="Maximum token entropy" nq="0.696" trivia="0.723" truthful="yes" />
+    <SliceRow method="8-feature trace logistic" nq="0.695" trivia="0.724" truthful="yes" />
+    <SliceRow method="3-sample lexical disagreement" nq="0.717" trivia="0.691" truthful="yes" />
+    <SliceRow method="Worst-token surprise" nq="0.689" trivia="0.745" truthful="yes" />
+    <SliceRow method="Top-3 surprise · frozen" nq="0.656" trivia="0.715" truthful="yes" />
+    <SliceRow method="CRCV mean" nq="0.634" trivia="0.588" truthful="yes" />
+    <SliceRow method="Mean hidden cosine change" nq="0.555" trivia="0.390" truthful="no" />
+  </PageFrame>
+);
+
+const ReplicationRule: Page = () => (
+  <PageFrame
+    eyebrow="Two complementary summaries"
+    title={<>Transfer is broad—but <Accent>not universal.</Accent></>}
+    chapter="replication · rule"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 54 }}>
+      <div style={{ minHeight: 410, padding: 40, background: C.dark, color: C.paper }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.darkMuted }}>PREDECLARED DIRECTION RULE</div>
+        <div style={{ marginTop: 28, fontFamily: mono, fontSize: 92, lineHeight: 1, color: C.safe }}>25 / 31</div>
+        <div style={{ marginTop: 28, fontSize: 28, lineHeight: 1.45, color: C.darkMuted }}>Above chance pooled on both models and on ≥2/3 slices per model.</div>
+      </div>
+      <div style={{ minHeight: 410, padding: 40, background: C.panel, borderTop: '5px solid ' + C.accent }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.muted }}>STRICT DESCRIPTIVE CHECK</div>
+        <div style={{ marginTop: 28, fontFamily: mono, fontSize: 92, lineHeight: 1, color: C.accent }}>19 / 31</div>
+        <div style={{ marginTop: 28, fontSize: 28, lineHeight: 1.45, color: C.muted }}>The pooled 95% AUROC interval lower bound is above .500 on both models.</div>
+      </div>
+    </div>
+    <div style={{ marginTop: 36, fontSize: 27, lineHeight: 1.45 }}>Answer length fails the slice rule. Three pure hidden-cosine summaries fail. The signal is not “everything correlates.”</div>
+  </PageFrame>
+);
+
+const ReplicationInterpretation: Page = () => (
+  <PageFrame
+    eyebrow="What actually generalized?"
+    title={<>The transferable signal lives mostly in <Accent>token uncertainty.</Accent></>}
+    chapter="replication · interpretation"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px 56px' }}>
+      <div style={{ borderTop: '4px solid ' + C.safe, paddingTop: 22 }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>STRONG · FREE</div>
+        <div style={{ marginTop: 13, fontSize: 33, fontWeight: 700 }}>Surprise spread</div>
+        <div style={{ marginTop: 11, fontSize: 25, lineHeight: 1.4, color: C.muted }}>.706 Qwen · .731 SmolLM2 · all six slices above .5.</div>
+      </div>
+      <div style={{ borderTop: '4px solid ' + C.safe, paddingTop: 22 }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>STRONG · FREE</div>
+        <div style={{ marginTop: 13, fontSize: 33, fontWeight: 700 }}>Entropy + worst token</div>
+        <div style={{ marginTop: 11, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Full next-token distribution and local low-confidence events both transfer.</div>
+      </div>
+      <div style={{ borderTop: '4px solid ' + C.accent, paddingTop: 22 }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>WEAK · TRANSFERS</div>
+        <div style={{ marginTop: 13, fontSize: 33, fontWeight: 700 }}>CRCV</div>
+        <div style={{ marginTop: 11, fontSize: 25, lineHeight: 1.4, color: C.muted }}>.634 Qwen · .588 SmolLM2. Direction survives; effect shrinks.</div>
+      </div>
+      <div style={{ borderTop: '4px solid ' + C.accent, paddingTop: 22 }}>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>FAILS TO TRANSFER</div>
+        <div style={{ marginTop: 13, fontSize: 33, fontWeight: 700 }}>Mean hidden cosine change</div>
+        <div style={{ marginTop: 11, fontSize: 25, lineHeight: 1.4, color: C.muted }}>.555 Qwen · .390 SmolLM2. Hidden geometry is model-specific.</div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
+const ReplicationRecommendation: Page = () => (
+  <PageFrame
+    eyebrow="Updated operational recommendation"
+    title={<>Compute <Accent>spread + top-3 surprise</Accent> from the same pass.</>}
+    chapter="replication · recommendation"
+    dark
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 60 }}>
+      <div style={{ padding: 38, background: C.darkPanel, borderTop: '5px solid ' + C.safe }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.safe }}>LEAD CHEAP CANDIDATE</div>
+        <div style={{ marginTop: 24, fontSize: 38, lineHeight: 1.25, fontWeight: 730 }}>sample-SDₜ(−ln pₜ)</div>
+        <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.48, color: C.darkMuted }}>Surprise spread is stronger descriptively on both model families and costs no extra pass.</div>
+      </div>
+      <div style={{ padding: 38, background: C.darkPanel, borderTop: '5px solid ' + C.accent }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.accent }}>KEEP THE FROZEN ANCHOR</div>
+        <div style={{ marginTop: 24, fontSize: 38, lineHeight: 1.25, fontWeight: 730 }}>mean(top 3 of −ln pₜ)</div>
+        <div style={{ marginTop: 24, fontSize: 27, lineHeight: 1.48, color: C.darkMuted }}>Its SmolLM2 AUROC is .715. The paired spread-minus-top-3 interval still crosses zero.</div>
+      </div>
+    </div>
+    <div style={{ marginTop: 36, fontSize: 28, lineHeight: 1.45 }}>Fit each review threshold on that model’s calibration set. Never treat either score as a probability of factual correctness.</div>
+  </PageFrame>
+);
+
 const Findings: Page = () => (
   <PageFrame
     eyebrow="What survives the benchmark?"
@@ -2360,22 +2506,22 @@ const Findings: Page = () => (
       <div style={{ borderTop: '3px solid ' + C.safe, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>01 · USEFUL</div>
         <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Confidence variation contains signal</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Top-3: .656 frozen; spread: .706 post-hoc.</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Spread: .706 Qwen, .731 SmolLM2.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.accent, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>02 · MODEL-SPECIFIC</div>
-        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Observed winners do not transfer</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Lexical leads Instruct; ambiguity leads Base.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>02 · WEAKER</div>
+        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>CRCV transfers modestly</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>.634 Qwen, .588 SmolLM2.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.accent, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>03 · NO ENSEMBLE WIN</div>
-        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Eight features do not dominate</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Trace logistic: .695 Instruct, .627 Base.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>03 · MODEL-SPECIFIC</div>
+        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Pure hidden motion can invert</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Mean cosine change: .555 → .390.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.ink, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20 }}>04 · NOT ESTABLISHED</div>
         <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>No reliable improvement</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>All paired 95% differences vs top-3 include zero.</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Spread’s paired gain over top-3 still includes zero.</div>
       </div>
     </div>
   </PageFrame>
@@ -2395,20 +2541,20 @@ const Limits: Page = () => (
       </div>
       <div style={{ borderTop: '1px solid ' + C.darkLine, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>CLASS IMBALANCE</div>
-        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>Only 43 Instruct and 28 Base held-out answers were correct.</div>
+        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>Only 43 Qwen and 47 SmolLM2 held-out answers were alias-matched.</div>
       </div>
       <div style={{ borderTop: '1px solid ' + C.darkLine, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>REFERENCE-FREE CEILING</div>
         <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>Internal uncertainty cannot retrieve missing world knowledge.</div>
       </div>
       <div style={{ borderTop: '1px solid ' + C.darkLine, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>POST-HOC EXTENSION</div>
-        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>The 31-method ranking needs a fresh confirmatory split.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>REUSED QUESTIONS</div>
+        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>SmolLM2 is new-model evidence, not new-data confirmation.</div>
       </div>
     </div>
     <div style={{ marginTop: 44, padding: 30, border: '1px solid ' + C.darkLine, background: C.darkPanel }}>
       <div style={{ fontSize: 29, lineHeight: 1.4 }}>
-        Next: human factuality labels, retrieval baselines, larger models, repeated seeds, and calibration transfer tests.
+        Next: human factuality labels, a truly untouched split, retrieval baselines, larger models, and calibration transfer tests.
       </div>
     </div>
   </PageFrame>
@@ -2425,13 +2571,13 @@ const Closing: Page = () => (
         style={{
           margin: '36px 0 0',
           fontFamily: 'var(--osd-font-display)',
-          fontSize: 106,
+          fontSize: 96,
           lineHeight: .98,
           letterSpacing: '-.058em',
           fontWeight: 770,
         }}
       >
-        Start with top-3 surprise.<br />
+        Compute spread + top-3.<br />
         <Accent>Show the arithmetic.</Accent><br />
         Treat every flag as triage.
       </h2>
@@ -2553,9 +2699,15 @@ export const notes = {
   58: 'Published semantic-entropy numbers use larger models, ten generations, and different labels.',
   59: 'Evaluate only methods whose required inputs were actually saved; label adaptations as proxies.',
   60: 'The original cost slide makes the frozen five-method comparison easy to reconstruct.',
-  61: 'Summarize empirical findings without turning post-hoc leaders into confirmed winners.',
-  62: 'State strict-label, imbalance, reference-free, and scope limitations before recommending use.',
-  63: 'End with cheap, inspectable triage and point to the interactive arithmetic.',
+  61: 'Explain why Qwen Base is a stress test but not an independent architecture-family replication.',
+  62: 'The SmolLM outputs and all 31 methods were prospective; the questions and Qwen results were already known.',
+  63: 'Read each row as Qwen AUROC, SmolLM2 AUROC, and whether the frozen direction rule passes.',
+  64: 'Twenty-five methods pass the predeclared direction rule; nineteen clear the stricter pooled-CI check on both models.',
+  65: 'The main transferable signal is token uncertainty; CRCV is weaker and pure hidden cosine motion is model-specific.',
+  66: 'Use surprise spread as the lead cheap candidate while retaining top-3 as the frozen comparison anchor.',
+  67: 'Summarize empirical findings without turning descriptive gains into statistically established wins.',
+  68: 'State strict-label, imbalance, reference-free, and reused-question limitations before recommending use.',
+  69: 'End with two free scores, inspectable arithmetic, and triage rather than factual verification.',
 };
 
 export default [
@@ -2620,6 +2772,12 @@ export default [
   PublishedContext,
   LiteratureFeasibility,
   Cost,
+  ReplicationWhy,
+  ReplicationProtocol,
+  ReplicationResults,
+  ReplicationRule,
+  ReplicationInterpretation,
+  ReplicationRecommendation,
   Findings,
   Limits,
   Closing,
