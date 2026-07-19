@@ -8,7 +8,8 @@
     "predev": "npm run prepare:data",
     "dev": "vite",
     "prebuild": "npm run prepare:data",
-    "build": "tsc -b && vite build",
+    "build:talk": "npm --prefix talk run build",
+    "build": "npm run build:talk && tsc -b && vite build",
     "test:web": "vitest run",
     "check:onnx": "node scripts/check_browser_generation.mjs",
     "preview": "vite preview"

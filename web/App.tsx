@@ -307,6 +307,12 @@ function Header({ model, onModel, view, onView }: { model: ModelKind; onModel: (
               {label}
             </button>
           ))}
+          <a
+            href="./talk/s/tiny-hallucination-detector"
+            className="focus-ring flex-1 px-4 py-2 text-center font-medium text-[#69716d] transition hover:text-[#18211d] md:flex-none"
+          >
+            Slides
+          </a>
         </nav>
         {view === 'overview' ? <span className="hidden text-xs font-medium text-[#69716d] lg:block">600 fresh questions · two checkpoints · one cautious recommendation</span> : <ModelToggle value={model} onChange={onModel} />}
       </div>

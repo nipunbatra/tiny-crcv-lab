@@ -7,6 +7,7 @@ __pycache__/
 node_modules/
 dist/
 public/data/fresh_qa_qwen05b_*.jsonl
+public/talk/
 *.tsbuildinfo
 work/
 outputs/*

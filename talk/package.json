@@ -1,0 +1,23 @@
+{
+  "name": "tiny-crcv-talk",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "open-slide dev",
+    "build": "open-slide build --out-dir ../public/talk",
+    "postbuild": "node ../scripts/prepare_talk_route.mjs",
+    "preview": "open-slide preview",
+    "sync:skills": "open-slide sync:skills"
+  },
+  "dependencies": {
+    "@open-slide/core": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "vite": "^5.4.10"
+  }
+}

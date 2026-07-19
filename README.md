@@ -20,6 +20,12 @@ raw saved inputs. The earlier 24-score sweep and HaluEval slice are available in
 one collapsed section. **Try it** performs inference inside the browser and
 exposes every raw per-token input.
 
+[Open the 20-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
+It uses Open Slide presenter controls, staged reveals, and morph transitions to
+follow one recorded wrong answer from tokenization through the transformer,
+token probabilities, hidden states, three detector calculations, calibration,
+and held-out benchmark results. Press **F** for fullscreen presentation mode.
+
 This is a research prototype, not a production detector. The fresh comparison
 uses 300 questions for thresholds/probe fitting and reports results on 300 held
 out questions. Every answer, self-check probability, stochastic sample, pair
@@ -55,7 +61,9 @@ no second, numerically independent replay. A repeated-trigram guard visibly
 invalidates degenerate output. This is not a KV-cache proxy and adds no
 neural-network layer.
 
-`npm run build` creates `dist/`. The included GitHub Actions workflow tests,
+Install the isolated presentation workspace once with `npm ci --prefix talk`.
+`npm run build` then creates both the lab and `/talk/` presentation under
+`dist/`. The included GitHub Actions workflow installs both workspaces, tests,
 builds, and deploys that directory to GitHub Pages; enable **Pages → GitHub
 Actions** in the repository settings.
 
