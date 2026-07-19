@@ -1,0 +1,96 @@
+{
+  "model": "instruct",
+  "feature_order": [
+    "top3_token_surprise",
+    "mean_nll",
+    "token_entropy_top3",
+    "token_ambiguity_top3",
+    "crcv_mean",
+    "surprise_shift_top3",
+    "hidden_cosine_top3",
+    "answer_tokens"
+  ],
+  "logistic": {
+    "calibration_mean": [
+      1.1215537786483765,
+      0.6393045783042908,
+      0.22555850446224213,
+      0.7430428862571716,
+      0.23448540270328522,
+      0.8002603054046631,
+      0.7099958658218384,
+      8.899999618530273
+    ],
+    "calibration_scale": [
+      0.5851323008537292,
+      0.3784531354904175,
+      0.10616239160299301,
+      0.2173100858926773,
+      0.16177412867546082,
+      0.6159706711769104,
+      0.227604940533638,
+      6.892748832702637
+    ],
+    "weights": [
+      -0.39263877272605896,
+      0.2792244851589203,
+      0.4969605803489685,
+      0.16442245244979858,
+      0.36629095673561096,
+      0.45367470383644104,
+      0.05211136117577553,
+      -0.012466792948544025
+    ],
+    "bias": 0.37225577235221863,
+    "training_loss": 0.5819846221926709,
+    "steps": 800,
+    "seed": 20260791
+  },
+  "tree": {
+    "count": 300,
+    "positives": 266,
+    "hallucination_probability": 0.8866666666666667,
+    "feature": "surprise_shift_top3",
+    "threshold": 0.40823830068429795,
+    "left_if": "value <= threshold",
+    "left": {
+      "count": 88,
+      "positives": 64,
+      "hallucination_probability": 0.7272727272727273,
+      "feature": "token_entropy_top3",
+      "threshold": 0.1337286012712866,
+      "left_if": "value <= threshold",
+      "left": {
+        "count": 46,
+        "positives": 28,
+        "hallucination_probability": 0.6086956521739131
+      },
+      "right_if": "value > threshold",
+      "right": {
+        "count": 42,
+        "positives": 36,
+        "hallucination_probability": 0.8571428571428571
+      }
+    },
+    "right_if": "value > threshold",
+    "right": {
+      "count": 212,
+      "positives": 202,
+      "hallucination_probability": 0.9528301886792453,
+      "feature": "crcv_mean",
+      "threshold": 0.15112888518037304,
+      "left_if": "value <= threshold",
+      "left": {
+        "count": 28,
+        "positives": 23,
+        "hallucination_probability": 0.8214285714285714
+      },
+      "right_if": "value > threshold",
+      "right": {
+        "count": 184,
+        "positives": 179,
+        "hallucination_probability": 0.9728260869565217
+      }
+    }
+  }
+}

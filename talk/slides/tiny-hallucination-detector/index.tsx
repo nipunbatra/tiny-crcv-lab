@@ -676,6 +676,18 @@ const CostRow = ({
   </div>
 );
 
+const TraceTermRow = ({ feature, x, z, w, contribution }: { feature: string; x: string; z: string; w: string; contribution: string }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '1.35fr repeat(4,.72fr)', gap: 14, alignItems: 'center', minHeight: 56, borderTop: '1px solid ' + C.line, fontFamily: mono, fontSize: 18 }}>
+    <div style={{ fontFamily: 'var(--osd-font-body)', fontWeight: 670 }}>{feature}</div><div>{x}</div><div>{z}</div><div>{w}</div><div style={{ color: contribution.startsWith('+') ? C.safe : C.accent, fontWeight: 720 }}>{contribution}</div>
+  </div>
+);
+
+const LiteratureRow = ({ method, input, here, status }: { method: string; input: string; here: string; status: 'yes' | 'proxy' | 'no' }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '310px 1fr 1.15fr 150px', gap: 24, alignItems: 'center', minHeight: 102, borderTop: '1px solid ' + C.line }}>
+    <div style={{ fontSize: 27, fontWeight: 720 }}>{method}</div><div style={{ fontSize: 24, lineHeight: 1.35, color: C.muted }}>{input}</div><div style={{ fontSize: 24, lineHeight: 1.35 }}>{here}</div><div><Pill tone={status === 'yes' ? 'safe' : status === 'proxy' ? 'accent' : 'plain'}>{status === 'yes' ? 'EVALUATED' : status === 'proxy' ? 'PROXY' : 'NOT HERE'}</Pill></div>
+  </div>
+);
+
 const Cover: Page = () => (
   <section style={basePage}>
     <DeckStyles />
@@ -700,7 +712,7 @@ const Cover: Page = () => (
       </p>
     </div>
     <div style={{ position: 'absolute', right: 130, top: 165, width: 360, borderTop: '4px solid ' + C.accent, paddingTop: 26 }}>
-      <div style={{ fontFamily: mono, fontSize: 88, fontWeight: 760, letterSpacing: '-.07em', color: C.accent }}>42</div>
+      <div style={{ fontFamily: mono, fontSize: 88, fontWeight: 760, letterSpacing: '-.07em', color: C.accent }}>64</div>
       <div style={{ marginTop: 5, fontSize: 28, fontWeight: 680 }}>small steps</div>
       <div style={{ marginTop: 58, fontFamily: mono, fontSize: 21, color: C.muted }}>ONE HELD-OUT EXAMPLE</div>
       <div style={{ marginTop: 14, fontSize: 29, lineHeight: 1.35 }}>Taipei versus a real non-answer, traced end to end.</div>
@@ -1380,6 +1392,143 @@ const SurpriseDecision: Page = () => (
   </PageFrame>
 );
 
+const CrcvIdea: Page = () => (
+  <PageFrame
+    eyebrow="Measure 2 · CRCV"
+    title={<>Couple token confidence with <Accent>hidden-state motion.</Accent></>}
+    chapter="measure · CRCV definition"
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 25, marginTop: 18 }}>
+      <Node label="confidence cₜ" detail="p(selected token t)" width={300} />
+      <div style={{ fontFamily: mono, fontSize: 48 }}>×</div>
+      <Node label="state shift rₜ" detail="‖hₜ−hₜ₋₁‖₂ / (‖hₜ₋₁‖₂+10⁻⁸)" width={390} />
+      <FlowArrow width={90} />
+      <Node label="coupling sₜ" detail="sₜ = cₜrₜ" width={270} accent />
+      <FlowArrow width={90} />
+      <Node label="local variability" detail="sample-SD in W=5 windows" width={340} />
+    </div>
+    <div style={{ marginTop: 58, padding: 34, background: C.dark, color: C.paper, borderRadius: 16 }}>
+      <div style={{ fontFamily: mono, fontSize: 30, lineHeight: 1.6 }}>
+        CRCV<sub>mean</sub> = mean<sub>w</sub> sample-SD({'{'}cₜrₜ : t in window w{'}'})
+      </div>
+      <div style={{ marginTop: 14, fontFamily: mono, fontSize: 25, color: C.accent }}>
+        complete trailing windows only · effective W = min(5, valid pairs)
+      </div>
+    </div>
+    <div style={{ marginTop: 35, fontSize: 27, lineHeight: 1.4, color: C.muted }}>
+      Hypothesis: unstable coordination between what the model chooses and how much its representation moves may mark risky generation.
+    </div>
+  </PageFrame>
+);
+
+const CrcvCorrect: Page = () => (
+  <PageFrame
+    eyebrow="CRCV · correct Taiwan response"
+    title={<>A two-token answer has only <Accent>one valid coupling.</Accent></>}
+    chapter="measure · CRCV correct calculation"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.15fr .85fr', gap: 54 }}>
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: '150px repeat(3,1fr)', gap: 18, fontFamily: mono, fontSize: 18, color: C.muted, paddingBottom: 12 }}><div>TOKEN</div><div>cₜ</div><div>rₜ</div><div>sₜ=cₜrₜ</div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '150px repeat(3,1fr)', gap: 18, minHeight: 92, alignItems: 'center', borderTop: '1px solid ' + C.line, fontFamily: mono, fontSize: 24 }}><div>Tai</div><div>.895825</div><div>—</div><div>—</div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '150px repeat(3,1fr)', gap: 18, minHeight: 92, alignItems: 'center', borderTop: '1px solid ' + C.line, fontFamily: mono, fontSize: 24, background: C.safeSoft }}><div>pei</div><div>.999094</div><div>1.195335</div><div>1.194251</div></div>
+      </div>
+      <ComparePanel title="CRCV convention" subtitle="INSTRUCT · CORRECT">
+        <CalcLine label="valid s values" expression="[.999094 × 1.195335]" value="[1.194251]" />
+        <CalcLine label="sample SD" expression="one value → 0" value="0.000000" />
+        <CalcLine label="window mean" expression="0 / 1 window" value="0.000000" />
+        <Decision score="0.000000" threshold="0.124948" flagged={false} expected />
+      </ComparePanel>
+    </div>
+    <div style={{ marginTop: 26, fontSize: 25, color: C.muted }}>This zero is a length-edge convention, not evidence that the hidden state never moved.</div>
+  </PageFrame>
+);
+
+const CrcvWrongWindow: Page = () => (
+  <PageFrame
+    eyebrow="CRCV · wrong Taiwan response"
+    title={<>Work the <Accent>first five-coupling window</Accent> exactly.</>}
+    chapter="measure · CRCV first window"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr .88fr', gap: 52 }}>
+      <div>
+        <div style={{ fontFamily: mono, fontSize: 21, lineHeight: 1.75, background: C.panel, padding: 30, borderTop: '4px solid ' + C.accent }}>
+          s₂ = .411630 × .702356 = <strong>.289111</strong><br />
+          s₃ = .244047 × .775810 = <strong>.189334</strong><br />
+          s₄ = .271140 × .703972 = <strong>.190875</strong><br />
+          s₅ = .253005 × .541727 = <strong>.137060</strong><br />
+          s₆ = .637811 × .680158 = <strong>.433812</strong>
+        </div>
+      </div>
+      <div style={{ padding: 32, background: C.dark, color: C.paper }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.darkMuted }}>WINDOW 1 · n = 5</div>
+        <div style={{ marginTop: 22, fontFamily: mono, fontSize: 25, lineHeight: 1.65 }}>
+          mean(s) = 0.248038<br />
+          Σ(s−mean)² = 0.055229<br />
+          sample variance = 0.055229 / 4<br />
+          = 0.0138072
+        </div>
+        <div style={{ marginTop: 30, borderTop: '1px solid ' + C.darkLine, paddingTop: 24, fontFamily: mono, fontSize: 39, color: C.accent }}>
+          √0.0138072 = 0.117504
+        </div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
+const CrcvWrongAggregate: Page = () => (
+  <PageFrame
+    eyebrow="CRCV · wrong Taiwan response"
+    title={<>Slide the window, then <Accent>average 19 local SDs.</Accent></>}
+    chapter="measure · CRCV aggregation"
+  >
+    <div style={{ background: C.panel, borderTop: '4px solid ' + C.ink, padding: 32 }}>
+      <div style={{ fontFamily: mono, fontSize: 19, lineHeight: 1.8, color: C.muted }}>
+        0.117504 · 0.174567 · 0.164031 · 0.149084 · 0.117114 · 0.134177 · 0.068707<br />
+        0.275250 · 0.275375 · 0.278308 · 0.404151 · 0.392572 · <span style={{ color: C.accent, fontWeight: 760 }}>0.422805</span><br />
+        0.305576 · 0.035197 · 0.045021 · 0.045297 · 0.093012 · 0.093617
+      </div>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr .65fr', gap: 48, marginTop: 42 }}>
+      <div style={{ padding: 34, background: C.dark, color: C.paper }}>
+        <div style={{ fontFamily: mono, fontSize: 28, lineHeight: 1.65 }}>
+          CRCV<sub>mean</sub> = 3.591366 / 19<br />
+          <span style={{ color: C.accent, fontSize: 48, fontWeight: 760 }}>= 0.189019</span>
+        </div>
+      </div>
+      <div style={{ padding: 34, background: C.accentSoft }}>
+        <div style={{ fontFamily: mono, fontSize: 22, color: C.muted }}>CALIBRATED BASE CUTOFF</div>
+        <div style={{ marginTop: 14, fontFamily: mono, fontSize: 36 }}>0.189019 ≥ 0.004260</div>
+        <div style={{ marginTop: 16 }}><Pill tone="accent">FLAG · correct decision</Pill></div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
+const CrcvResults: Page = () => (
+  <PageFrame
+    eyebrow="CRCV · benchmark, not just one pair"
+    title={<>The example works. The pooled ranking is <Accent>only modest.</Accent></>}
+    chapter="measure · CRCV benchmark"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 52 }}>
+      <ComparePanel title="Instruct" subtitle="300 HELD-OUT QUESTIONS">
+        <CalcLine label="CRCV mean" expression="95% CI .543–.712" value="AUROC .634" />
+        <CalcLine label="CRCV max" expression="95% CI .516–.705" value="AUROC .606" />
+        <CalcLine label="top-3 surprise" expression="frozen baseline" value="AUROC .656" />
+      </ComparePanel>
+      <ComparePanel title="Base" subtitle="300 HELD-OUT QUESTIONS" wrong>
+        <CalcLine label="CRCV mean" expression="95% CI .422–.646" value="AUROC .537" />
+        <CalcLine label="CRCV max" expression="95% CI .409–.632" value="AUROC .522" />
+        <CalcLine label="top-3 surprise" expression="frozen baseline" value="AUROC .599" />
+      </ComparePanel>
+    </div>
+    <div style={{ marginTop: 30, padding: 26, borderLeft: '5px solid ' + C.accent, background: C.accentSoft, fontSize: 26, lineHeight: 1.4 }}>
+      CRCV multiplies by confidence, so highly uncertain tokens shrink the coupling. We also audit surprise×shift and uncertainty×shift; neither is a confirmed improvement.
+    </div>
+  </PageFrame>
+);
+
 const PFalsePrompt: Page = () => (
   <PageFrame
     eyebrow="Measure 2 · P(False) self-check"
@@ -1473,6 +1622,104 @@ const DisagreementCalc: Page = () => (
   </PageFrame>
 );
 
+const LexicalIdea: Page = () => (
+  <PageFrame
+    eyebrow="Measure 4 · SelfCheckGPT-inspired lexical disagreement"
+    title={<>If sampled answers diverge, <Accent>raise the risk.</Accent></>}
+    chapter="measure · lexical consistency"
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 22 }}>
+      <Node label="3 sampled answers" detail="same question · different seeds" width={350} />
+      <FlowArrow width={95} />
+      <Node label="normalize words" detail="lowercase · strip punctuation · unique set" width={370} />
+      <FlowArrow width={95} />
+      <Node label="3 pair distances" detail="1 − |A∩B| / |A∪B|" width={350} />
+      <FlowArrow width={95} />
+      <Node label="mean" detail="lexical risk" width={250} accent />
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 54, marginTop: 68 }}>
+      <div style={{ borderTop: '3px solid ' + C.safe, paddingTop: 22 }}><div style={{ fontSize: 32, fontWeight: 720 }}>“Taipei” × 3</div><div style={{ marginTop: 12, fontSize: 27, color: C.muted }}>Every Jaccard distance is zero.</div></div>
+      <div style={{ borderTop: '3px solid ' + C.accent, paddingTop: 22 }}><div style={{ fontSize: 32, fontWeight: 720 }}>Different continuations</div><div style={{ marginTop: 12, fontSize: 27, color: C.muted }}>Distances approach one as word sets separate.</div></div>
+    </div>
+    <div style={{ marginTop: 42, fontSize: 21, color: C.muted }}>Adaptation of the sampling-consistency idea in Manakul et al., SelfCheckGPT, EMNLP 2023. This short-answer Jaccard score is our proxy, not the paper’s full system.</div>
+  </PageFrame>
+);
+
+const LexicalCalc: Page = () => (
+  <PageFrame
+    eyebrow="Measure 4 · exact arithmetic"
+    title={<>Three pair distances <Accent>separate the Taiwan responses.</Accent></>}
+    chapter="measure · lexical calculation"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 46 }}>
+      <ComparePanel title="Correct-side samples" subtitle="TAIPEI · TAIPEI · TAIPEI">
+        <CalcLine label="pair 0–1" expression="1 − |{taipei}| / |{taipei}|" value="0.000000" />
+        <CalcLine label="pair 0–2" expression="same sets" value="0.000000" />
+        <CalcLine label="pair 1–2" expression="same sets" value="0.000000" />
+        <CalcLine label="mean" expression="(0 + 0 + 0) / 3" value="0.000000" />
+        <Decision score="0.000000" threshold="0.350427" flagged={false} expected />
+      </ComparePanel>
+      <ComparePanel title="Wrong-side samples" subtitle="BASE · THREE DIFFERENT CONTINUATIONS" wrong>
+        <CalcLine label="pair 0–1" expression="1 − Jaccard(words₀,words₁)" value="0.727273" />
+        <CalcLine label="pair 0–2" expression="1 − Jaccard(words₀,words₂)" value="0.833333" />
+        <CalcLine label="pair 1–2" expression="1 − Jaccard(words₁,words₂)" value="0.937500" />
+        <CalcLine label="mean" expression="2.498106 / 3" value="0.832702" accent />
+        <Decision score="0.832702" threshold="0.800343" flagged expected />
+      </ComparePanel>
+    </div>
+  </PageFrame>
+);
+
+const SemanticEntropyIdea: Page = () => (
+  <PageFrame
+    eyebrow="Measure 5 · three-sample semantic-entropy proxy"
+    title={<>Count uncertainty over <Accent>meanings</Accent>, not wordings.</>}
+    chapter="measure · semantic entropy"
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 22, marginTop: 18 }}>
+      <Node label="3 sampled answers" detail="a₀, a₁, a₂" width={300} />
+      <FlowArrow width={80} />
+      <Node label="same-answer judge" detail="connect pair if P(No) < .5" width={360} />
+      <FlowArrow width={80} />
+      <Node label="meaning clusters" detail="connected components" width={330} />
+      <FlowArrow width={80} />
+      <Node label="cluster masses" detail="p꜀ = n꜀ / 3" width={290} />
+      <FlowArrow width={80} />
+      <Node label="entropy" detail="−Σ p꜀ ln p꜀" width={270} accent />
+    </div>
+    <div style={{ marginTop: 60, padding: 34, background: C.dark, color: C.paper }}>
+      <div style={{ fontFamily: mono, fontSize: 32 }}>H<sub>semantic</sub> = −Σ<sub>clusters c</sub> (n꜀/3) ln(n꜀/3)</div>
+      <div style={{ marginTop: 18, fontSize: 26, lineHeight: 1.4, color: C.darkMuted }}>One cluster → 0. Three equally sized clusters → ln 3 = 1.098612.</div>
+    </div>
+    <div style={{ marginTop: 34, fontSize: 21, color: C.muted }}>Farquhar et al. use bidirectional entailment and normally ten QA generations. Our score uses three saved samples and a cheaper same-answer judge, so it is explicitly a budget proxy.</div>
+  </PageFrame>
+);
+
+const SemanticEntropyCalc: Page = () => (
+  <PageFrame
+    eyebrow="Measure 5 · exact arithmetic"
+    title={<>One meaning versus <Accent>two meaning clusters.</Accent></>}
+    chapter="measure · semantic entropy calculation"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 46 }}>
+      <ComparePanel title="Correct · Taipei" subtitle="CLUSTER {1,2,3}">
+        <CalcLine label="cluster sizes" expression="all pair risks .186119 < .5" value="[3]" />
+        <CalcLine label="mass" expression="3 / 3" value="[1.000000]" />
+        <CalcLine label="entropy" expression="−1 × ln(1)" value="0.000000" />
+        <Decision score="0.000000" threshold="≈ 0.000000" flagged expected={false} />
+      </ComparePanel>
+      <ComparePanel title="Wrong · non-answer" subtitle="CLUSTERS {1,2} · {3}" wrong>
+        <CalcLine label="cluster sizes" expression=".478252 < .5; others > .5" value="[2, 1]" />
+        <CalcLine label="masses" expression="2/3 and 1/3" value="[.666667,.333333]" />
+        <CalcLine label="term 1" expression="−(2/3) ln(2/3)" value=".270310" />
+        <CalcLine label="term 2" expression="−(1/3) ln(1/3)" value=".366204" />
+        <CalcLine label="entropy" expression=".270310 + .366204" value=".636514" accent />
+        <Decision score="0.636514" threshold="≈ 0.000000" flagged expected />
+      </ComparePanel>
+    </div>
+  </PageFrame>
+);
+
 const ProbeIdea: Page = () => (
   <PageFrame
     eyebrow="Measure 4 · mean-hidden linear probe"
@@ -1525,6 +1772,115 @@ const ProbeCalc: Page = () => (
         <Decision score="0.903896" threshold="0.425644" flagged expected />
       </ComparePanel>
     </div>
+  </PageFrame>
+);
+
+const TraceLogisticIdea: Page = () => (
+  <PageFrame
+    eyebrow="Measure 7 · eight-feature trace logistic"
+    title={<>A tiny model can combine signals—<Accent>if calibration stays separate.</Accent></>}
+    chapter="measure · trace logistic"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 56 }}>
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          {['top-3 surprise','mean NLL','top-3 entropy','top-3 ambiguity','CRCV mean','surprise × shift','hidden cosine top-3','answer length'].map((feature, index) => <div key={feature} style={{ minHeight: 82, padding: '18px 20px', borderTop: '3px solid ' + (index === 4 ? C.accent : C.ink), background: C.panel, fontSize: 24, fontWeight: 680 }}>{feature}</div>)}
+        </div>
+      </div>
+      <div style={{ padding: 34, background: C.dark, color: C.paper }}>
+        <div style={{ fontFamily: mono, fontSize: 27, lineHeight: 1.65 }}>
+          zₖ = (xₖ − μₖ) / σₖ<br />
+          logit = b + Σ wₖzₖ<br />
+          risk = sigmoid(logit)
+        </div>
+        <div style={{ marginTop: 34, borderTop: '1px solid ' + C.darkLine, paddingTop: 24, fontSize: 25, lineHeight: 1.45, color: C.darkMuted }}>
+          μ, σ, weights, bias, and the classification cutoff use only the 300 calibration rows.
+        </div>
+        <div style={{ marginTop: 24 }}><Pill tone="dark">8 weights + 1 bias · ≈2 μs / answer</Pill></div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
+const TraceLogisticCorrect: Page = () => (
+  <PageFrame
+    eyebrow="Eight-feature logistic · correct Taipei"
+    title={<>Every contribution is <Accent>visible and additive.</Accent></>}
+    chapter="measure · logistic correct calculation"
+    titleSize={61}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.35fr repeat(4,.72fr)', gap: 14, fontFamily: mono, fontSize: 17, color: C.muted, paddingBottom: 8 }}><div>FEATURE</div><div>x</div><div>z</div><div>w</div><div>wz</div></div>
+    <TraceTermRow feature="top-3 surprise" x=".0555" z="−1.8220" w="−.3926" contribution="+.7154" />
+    <TraceTermRow feature="mean NLL" x=".0555" z="−1.5427" w="+.2792" contribution="−.4308" />
+    <TraceTermRow feature="top-3 entropy" x=".0161" z="−1.9732" w="+.4970" contribution="−.9806" />
+    <TraceTermRow feature="top-3 ambiguity" x=".1013" z="−2.9530" w="+.1644" contribution="−.4855" />
+    <TraceTermRow feature="CRCV mean" x="0" z="−1.4495" w="+.3663" contribution="−.5309" />
+    <TraceTermRow feature="surprise × shift" x=".0011" z="−1.2974" w="+.4537" contribution="−.5886" />
+    <TraceTermRow feature="hidden cosine top-3" x=".7932" z="+.3657" w="+.0521" contribution="+.0191" />
+    <TraceTermRow feature="answer tokens" x="2" z="−1.0011" w="−.0125" contribution="+.0125" />
+    <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 34, padding: '22px 28px', background: C.safeSoft }}><div style={{ fontFamily: mono, fontSize: 25 }}>logit = bias .372256 + Σwz = <strong>−1.897300</strong></div><div style={{ fontFamily: mono, fontSize: 31, color: C.safe }}>sigmoid = .130414</div><Pill tone="safe">PASS · τ .319286</Pill></div>
+  </PageFrame>
+);
+
+const TraceLogisticWrong: Page = () => (
+  <PageFrame
+    eyebrow="Eight-feature logistic · wrong Base non-answer"
+    title={<>The same eight-term sum gives a <Accent>flag.</Accent></>}
+    chapter="measure · logistic wrong calculation"
+    titleSize={61}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.35fr repeat(4,.72fr)', gap: 14, fontFamily: mono, fontSize: 17, color: C.muted, paddingBottom: 8 }}><div>FEATURE</div><div>x</div><div>z</div><div>w</div><div>wz</div></div>
+    <TraceTermRow feature="top-3 surprise" x="1.4503" z="−.8966" w="+.6278" contribution="−.5629" />
+    <TraceTermRow feature="mean NLL" x=".5827" z="−.7735" w="−.2167" contribution="+.1677" />
+    <TraceTermRow feature="top-3 entropy" x=".3247" z="−.6851" w="+.1447" contribution="−.0991" />
+    <TraceTermRow feature="top-3 ambiguity" x=".9298" z="+.1328" w="−.2222" contribution="−.0295" />
+    <TraceTermRow feature="CRCV mean" x=".1890" z="−.2779" w="+.3802" contribution="−.1057" />
+    <TraceTermRow feature="surprise × shift" x="1.1054" z="−.2513" w="+.3331" contribution="−.0837" />
+    <TraceTermRow feature="hidden cosine top-3" x=".8930" z="+1.0717" w="−.1974" contribution="−.2115" />
+    <TraceTermRow feature="answer tokens" x="24" z="+.7250" w="+.1283" contribution="+.0930" />
+    <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 34, padding: '22px 28px', background: C.accentSoft }}><div style={{ fontFamily: mono, fontSize: 25 }}>logit = bias .292905 + Σwz = <strong>−.538843</strong></div><div style={{ fontFamily: mono, fontSize: 31, color: C.accent }}>sigmoid = .368457</div><Pill tone="accent">FLAG · τ .285766</Pill></div>
+  </PageFrame>
+);
+
+const TraceTreeIdea: Page = () => (
+  <PageFrame
+    eyebrow="Measure 8 · depth-2 trace tree"
+    title={<>Trade a weighted sum for <Accent>two readable questions.</Accent></>}
+    chapter="measure · shallow tree"
+  >
+    <div style={{ position: 'relative', height: 545, marginTop: 8 }}>
+      <div style={{ position: 'absolute', left: 590, top: 0 }}><Node label="surprise × shift ≤ ?" detail="root threshold learned on calibration" width={430} accent /></div>
+      <div style={{ position: 'absolute', left: 330, top: 215 }}><Node label="top-3 entropy ≤ ?" detail="left child" width={350} /></div>
+      <div style={{ position: 'absolute', right: 330, top: 215 }}><Node label="another trace split" detail="right child" width={350} /></div>
+      <svg width="100%" height="420" style={{ position: 'absolute', inset: 0, zIndex: 0 }}><path d="M805 132 L505 215 M805 132 L1280 215" stroke={C.accent} strokeWidth="4" fill="none" strokeDasharray="12 9" /></svg>
+      <div style={{ position: 'absolute', left: 215, top: 430, width: 315, padding: 24, background: C.safeSoft, borderTop: '4px solid ' + C.safe, fontSize: 25 }}><strong>leaf risk</strong><br /><span style={{ fontFamily: mono }}>wrong / rows</span></div>
+      <div style={{ position: 'absolute', left: 590, top: 430, width: 315, padding: 24, background: C.panel, borderTop: '4px solid ' + C.ink, fontSize: 25 }}><strong>leaf risk</strong><br /><span style={{ fontFamily: mono }}>wrong / rows</span></div>
+      <div style={{ position: 'absolute', right: 405, top: 430, width: 315, padding: 24, background: C.accentSoft, borderTop: '4px solid ' + C.accent, fontSize: 25 }}><strong>leaf risk</strong><br /><span style={{ fontFamily: mono }}>wrong / rows</span></div>
+    </div>
+  </PageFrame>
+);
+
+const TraceTreeCalc: Page = () => (
+  <PageFrame
+    eyebrow="Depth-2 tree · exact paths"
+    title={<>Two branches reproduce each <Accent>leaf risk.</Accent></>}
+    chapter="measure · shallow tree calculation"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 46 }}>
+      <ComparePanel title="Correct · Taipei" subtitle="INSTRUCT TREE">
+        <CalcLine label="branch 1" expression="surprise×shift .001084 ≤ .408238" value="LEFT" />
+        <CalcLine label="branch 2" expression="top-3 entropy .016074 ≤ .133729" value="LEFT" />
+        <CalcLine label="leaf" expression="28 wrong / 46 calibration rows" value=".608696" />
+        <Decision score="0.608696" threshold="0.715062" flagged={false} expected />
+      </ComparePanel>
+      <ComparePanel title="Wrong · non-answer" subtitle="BASE TREE" wrong>
+        <CalcLine label="branch 1" expression="surprise×shift 1.105436 > .413023" value="RIGHT" />
+        <CalcLine label="branch 2" expression="top-3 entropy .324737 ≤ .386480" value="LEFT" />
+        <CalcLine label="leaf" expression="79 wrong / 94 calibration rows" value=".840426" accent />
+        <Decision score="0.840426" threshold="0.729036" flagged expected />
+      </ComparePanel>
+    </div>
+    <div style={{ marginTop: 30, fontSize: 25, color: C.muted }}>Maximum depth 2 · at least 20 calibration rows per leaf · no held-out hyperparameter search.</div>
   </PageFrame>
 );
 
@@ -1672,6 +2028,34 @@ const AuRoc: Page = () => (
   </PageFrame>
 );
 
+const AuRac: Page = () => (
+  <PageFrame
+    eyebrow="Selective answering"
+    title={<>AURAC asks what happens when we <Accent>reject high-risk answers.</Accent></>}
+    chapter="evaluation · AURAC"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr .9fr', gap: 64 }}>
+      <div>
+        <div style={{ padding: 32, background: C.panel, borderTop: '4px solid ' + C.ink }}>
+          <div style={{ fontSize: 31, lineHeight: 1.5 }}>1. Sort answers from lowest to highest predicted risk.</div>
+          <div style={{ marginTop: 18, fontSize: 31, lineHeight: 1.5 }}>2. Keep the lowest-risk 1, 2, …, N answers.</div>
+          <div style={{ marginTop: 18, fontSize: 31, lineHeight: 1.5 }}>3. Average strict-label accuracy over all N retained prefixes.</div>
+        </div>
+        <div style={{ marginTop: 30, padding: 28, background: C.dark, color: C.paper, fontFamily: mono, fontSize: 28 }}>AURAC = mean<sub>k=1..N</sub> accuracy(lowest-risk k)</div>
+      </div>
+      <div>
+        <div style={{ borderTop: '5px solid ' + C.accent, background: C.accentSoft, padding: 34 }}>
+          <div style={{ fontFamily: mono, fontSize: 20, color: C.muted }}>INSTRUCT · HELD OUT</div>
+          <CalcLine label="lexical disagreement" expression="highest observed" value=".244" />
+          <CalcLine label="surprise spread" expression="trace-only" value=".244" />
+          <CalcLine label="top-3 surprise" expression="frozen baseline" value=".226" />
+        </div>
+        <div style={{ marginTop: 24, fontSize: 24, lineHeight: 1.4, color: C.muted }}>Higher is better. The absolute values are low because only 43 of 300 Instruct answers are strictly correct.</div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
 const InstructResults: Page = () => (
   <PageFrame
     eyebrow="Held-out pooled benchmark · Instruct"
@@ -1797,11 +2181,153 @@ const BaseSlices: Page = () => (
   </PageFrame>
 );
 
+const ExtensionBoundary: Page = () => (
+  <PageFrame
+    eyebrow="A second analysis layer"
+    title={<>The 31-method audit is useful—<Accent>and explicitly post-hoc.</Accent></>}
+    chapter="extension · evidence boundary"
+    dark
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56 }}>
+      <div style={{ minHeight: 470, padding: 38, borderTop: '5px solid ' + C.safe, background: C.darkPanel }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.safe }}>FROZEN CONFIRMATORY LAYER</div>
+        <div style={{ marginTop: 25, fontSize: 38, fontWeight: 730 }}>5 methods</div>
+        <div style={{ marginTop: 22, fontSize: 27, lineHeight: 1.5, color: C.darkMuted }}>Top-3 surprise · P(False) · hidden probe · semantic disagreement · answer length.</div>
+        <div style={{ marginTop: 30 }}><Pill tone="dark">specified before held-out evaluation</Pill></div>
+      </div>
+      <div style={{ minHeight: 470, padding: 38, borderTop: '5px solid ' + C.accent, background: C.darkPanel }}>
+        <div style={{ fontFamily: mono, fontSize: 21, color: C.accent }}>EXPLORATORY EXTENSION</div>
+        <div style={{ marginTop: 25, fontSize: 38, fontWeight: 730 }}>31 methods total</div>
+        <div style={{ marginTop: 22, fontSize: 27, lineHeight: 1.5, color: C.darkMuted }}>All 24 saved scalars · lexical and semantic-entropy proxies · 8-feature logistic · depth-2 tree.</div>
+        <div style={{ marginTop: 30 }}><Pill tone="accent">held-out outputs were already inspected</Pill></div>
+      </div>
+    </div>
+    <div style={{ marginTop: 34, fontSize: 28, lineHeight: 1.4 }}>Use the extension to generate hypotheses. Confirm the winner on a new untouched split.</div>
+  </PageFrame>
+);
+
+const ScalarFamilies: Page = () => (
+  <PageFrame
+    eyebrow="What can one greedy trace give us?"
+    title={<>Twenty-four scalars fall into <Accent>six intuitive families.</Accent></>}
+    chapter="extension · scalar families"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 26 }}>
+      {[
+        ['TOKEN PROBABILITY · 7','mean NLL · top-3/worst/top-4 surprise · spread · confidence variability'],
+        ['DISTRIBUTION · 6','mean/max/top-3 entropy · mean/max/top-3 top-2 ambiguity'],
+        ['HIDDEN DYNAMICS · 6','shift variability · cosine mean/max/top-3 · hidden RMS mean/variability'],
+        ['COUPLED · 2','top-3 surprise×shift · top-3 uncertainty×shift'],
+        ['CRCV · 2','mean and maximum rolling SD of confidence×shift'],
+        ['CONTROL · 1','answer token count: useful only to expose length confounding'],
+      ].map(([label, text], index) => <div key={label} style={{ minHeight: 208, padding: 28, background: index === 4 ? C.accentSoft : C.panel, borderTop: '4px solid ' + (index === 4 ? C.accent : C.ink) }}><div style={{ fontFamily: mono, fontSize: 19, color: index === 4 ? C.accent : C.muted }}>{label}</div><div style={{ marginTop: 18, fontSize: 26, lineHeight: 1.42 }}>{text}</div></div>)}
+    </div>
+    <div style={{ marginTop: 30, fontSize: 24, color: C.muted }}>Every value was already present in the saved trace; no model rerun and no held-out feature selection.</div>
+  </PageFrame>
+);
+
+const ExpandedInstruct: Page = () => (
+  <PageFrame
+    eyebrow="Post-hoc pooled ranking · Instruct"
+    title={<>Lexical consistency leads; <Accent>trace-only spread is close.</Accent></>}
+    chapter="extension · instruct ranking"
+    titleSize={61}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.25fr .42fr .72fr .42fr', gap: 22, minHeight: 36, padding: '0 18px', fontFamily: mono, fontSize: 17, color: C.muted }}><div>METHOD</div><div>AUROC</div><div>95% CI</div><div>AURAC</div></div>
+    <ResultRow method="3-sample lexical disagreement" auroc="0.717" ci="0.623–0.801" f1="0.244" accent />
+    <ResultRow method="Token-surprise spread" auroc="0.706" ci="0.620–0.790" f1="0.244" />
+    <ResultRow method="Maximum token entropy" auroc="0.696" ci="0.609–0.777" f1="0.238" />
+    <ResultRow method="8-feature trace logistic" auroc="0.695" ci="0.603–0.777" f1="0.238" />
+    <ResultRow method="Worst-token surprise" auroc="0.689" ci="0.592–0.776" f1="0.236" />
+    <ResultRow method="Top-3 surprise · frozen" auroc="0.656" ci="0.560–0.747" f1="0.226" />
+    <ResultRow method="CRCV mean" auroc="0.634" ci="0.543–0.712" f1="0.194" />
+  </PageFrame>
+);
+
+const ExpandedBase: Page = () => (
+  <PageFrame
+    eyebrow="Post-hoc pooled ranking · Base"
+    title={<>Maximum token ambiguity is highest—<Accent>but uncertainty is wide.</Accent></>}
+    chapter="extension · base ranking"
+    titleSize={59}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1.25fr .42fr .72fr .42fr', gap: 22, minHeight: 36, padding: '0 18px', fontFamily: mono, fontSize: 17, color: C.muted }}><div>METHOD</div><div>AUROC</div><div>95% CI</div><div>AURAC</div></div>
+    <ResultRow method="Maximum token ambiguity" auroc="0.651" ci="0.553–0.745" f1="0.123" accent />
+    <ResultRow method="Worst-token surprise" auroc="0.635" ci="0.528–0.742" f1="0.130" />
+    <ResultRow method="Top-3 surprise after token 1" auroc="0.635" ci="0.530–0.732" f1="0.137" />
+    <ResultRow method="Token-surprise spread" auroc="0.630" ci="0.518–0.730" f1="0.138" />
+    <ResultRow method="Hidden RMS variability" auroc="0.629" ci="0.524–0.729" f1="0.131" />
+    <ResultRow method="P(False) · frozen" auroc="0.628" ci="0.525–0.728" f1="0.115" />
+    <ResultRow method="CRCV mean" auroc="0.537" ci="0.422–0.646" f1="0.122" />
+  </PageFrame>
+);
+
+const ExtendedCost: Page = () => (
+  <PageFrame
+    eyebrow="Accuracy–cost frontier · Instruct"
+    title={<>The best observed free score is <Accent>surprise spread.</Accent></>}
+    chapter="extension · cost frontier"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr 135px 180px', gap: 20, minHeight: 38, fontFamily: mono, fontSize: 17, color: C.muted }}><div>METHOD</div><div>AUROC ABOVE 0.5</div><div>AUROC</div><div>EXTRA / Q</div></div>
+    <CostRow method="Lexical disagreement" auroc="0.717" cost="1.462 s" width={500} />
+    <CostRow method="Surprise spread" auroc="0.706" cost="0.000 s" width={475} />
+    <CostRow method="8-feature logistic" auroc="0.695" cost="0.000002 s" width={450} />
+    <CostRow method="Max token entropy" auroc="0.696" cost="0.000 s" width={452} />
+    <CostRow method="Top-3 surprise" auroc="0.656" cost="0.000 s" width={360} />
+    <CostRow method="CRCV mean" auroc="0.634" cost="0.000 s" width={310} />
+    <div style={{ marginTop: 24, fontSize: 24, color: C.muted }}>No added method’s paired 95% AUROC-difference interval is entirely above zero versus top-3 surprise.</div>
+  </PageFrame>
+);
+
+const PublishedContext: Page = () => (
+  <PageFrame
+    eyebrow="How this sits beside published SOTA"
+    title={<>A published 0.790 is <Accent>not our leaderboard’s 0.790.</Accent></>}
+    chapter="literature · numeric context"
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr .82fr', gap: 60 }}>
+      <div>
+        <div style={{ fontFamily: mono, fontSize: 18, color: C.muted, marginBottom: 14 }}>FARQUHAR ET AL. · AVERAGE OVER 30 TASK×MODEL COMBINATIONS</div>
+        {[
+          ['Semantic entropy', '.790', 520],
+          ['P(True)', '.698', 395],
+          ['Naive entropy', '.691', 385],
+          ['Embedding regression', '.687', 380],
+        ].map(([name, value, width]) => <div key={String(name)} style={{ display: 'grid', gridTemplateColumns: '330px 1fr 100px', gap: 18, alignItems: 'center', minHeight: 88, borderTop: '1px solid ' + C.line }}><div style={{ fontSize: 26, fontWeight: 680 }}>{name}</div><div style={{ height: 16, background: '#e2ded5' }}><div style={{ width: Number(width), height: 16, background: name === 'Semantic entropy' ? C.accent : C.ink }} /></div><div style={{ fontFamily: mono, fontSize: 29 }}>{value}</div></div>)}
+      </div>
+      <div style={{ padding: 36, background: C.accentSoft, borderTop: '5px solid ' + C.accent }}>
+        <div style={{ fontFamily: mono, fontSize: 22, color: C.accent }}>WHY NOT NUMERICALLY COMPARABLE</div>
+        <div style={{ marginTop: 24, fontSize: 28, lineHeight: 1.5 }}>7B–70B models, not 0.5B.</div>
+        <div style={{ marginTop: 18, fontSize: 28, lineHeight: 1.5 }}>Ten generations, not three.</div>
+        <div style={{ marginTop: 18, fontSize: 28, lineHeight: 1.5 }}>Human-validated correctness and different tasks/splits.</div>
+        <div style={{ marginTop: 28, fontSize: 23, lineHeight: 1.4, color: C.muted }}>Source: Farquhar et al., Nature 2024, Fig. 2 discussion.</div>
+      </div>
+    </div>
+  </PageFrame>
+);
+
+const LiteratureFeasibility: Page = () => (
+  <PageFrame
+    eyebrow="What was fairly evaluable from our saved data?"
+    title={<>Reproduce what the trace supports. <Accent>Do not fabricate the rest.</Accent></>}
+    chapter="literature · feasibility"
+    titleSize={60}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '310px 1fr 1.15fr 150px', gap: 24, minHeight: 35, fontFamily: mono, fontSize: 16, color: C.muted }}><div>FAMILY</div><div>EXTRA INPUT</div><div>STATUS IN THIS LAB</div><div></div></div>
+    <LiteratureRow method="P(True)" input="self-evaluation pass" here="P(False) with fixed Yes/No prompt" status="yes" />
+    <LiteratureRow method="SelfCheckGPT" input="multiple generations" here="3-sample lexical Jaccard adaptation" status="proxy" />
+    <LiteratureRow method="Semantic entropy" input="samples + meaning clusters" here="3-sample discrete entropy adaptation" status="proxy" />
+    <LiteratureRow method="SAR" input="token/sentence relevance passes" here="deletion/relevance passes were not saved" status="no" />
+    <LiteratureRow method="INSIDE / EigenScore" input="hidden embeddings for sampled answers" here="only greedy-answer hidden states were saved" status="no" />
+    <LiteratureRow method="Lookback Lens" input="attention to grounding context" here="no grounding passage or attention maps" status="no" />
+  </PageFrame>
+);
+
 const Cost: Page = () => (
   <PageFrame
-    eyebrow="Incremental cost · Instruct"
-    title={<>More computation did not buy a <Accent>clear ranking gain.</Accent></>}
-    chapter="analysis · cost"
+    eyebrow="Frozen five-method cost · Instruct"
+    title={<>The original comparison still gives the <Accent>cleanest evidence.</Accent></>}
+    chapter="analysis · frozen cost"
   >
     <div
       style={{
@@ -1833,23 +2359,23 @@ const Findings: Page = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px 56px' }}>
       <div style={{ borderTop: '3px solid ' + C.safe, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20, color: C.safe }}>01 · USEFUL</div>
-        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Confidence tails contain signal</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Instruct top-3 AUROC: 0.656.</div>
+        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Confidence variation contains signal</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Top-3: .656 frozen; spread: .706 post-hoc.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.accent, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>02 · UNSTABLE</div>
-        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Self-check depends on checkpoint</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>0.603 Instruct versus 0.628 Base.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>02 · MODEL-SPECIFIC</div>
+        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Observed winners do not transfer</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Lexical leads Instruct; ambiguity leads Base.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.accent, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>03 · OVERFIT</div>
-        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Hidden probe collapses on test</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Calibration AUROC 1.000 → held-out 0.549.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>03 · NO ENSEMBLE WIN</div>
+        <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>Eight features do not dominate</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>Trace logistic: .695 Instruct, .627 Base.</div>
       </div>
       <div style={{ borderTop: '3px solid ' + C.ink, paddingTop: 20 }}>
         <div style={{ fontFamily: mono, fontSize: 20 }}>04 · NOT ESTABLISHED</div>
         <div style={{ marginTop: 12, fontSize: 32, fontWeight: 700 }}>No reliable improvement</div>
-        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>All paired 95% difference intervals include zero.</div>
+        <div style={{ marginTop: 10, fontSize: 25, lineHeight: 1.4, color: C.muted }}>All paired 95% differences vs top-3 include zero.</div>
       </div>
     </div>
   </PageFrame>
@@ -1876,8 +2402,8 @@ const Limits: Page = () => (
         <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>Internal uncertainty cannot retrieve missing world knowledge.</div>
       </div>
       <div style={{ borderTop: '1px solid ' + C.darkLine, paddingTop: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>SMALL SCOPE</div>
-        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>Two 0.5B checkpoints, one decoding setup, one fixed split.</div>
+        <div style={{ fontFamily: mono, fontSize: 20, color: C.accent }}>POST-HOC EXTENSION</div>
+        <div style={{ marginTop: 12, fontSize: 29, lineHeight: 1.4, color: C.darkMuted }}>The 31-method ranking needs a fresh confirmatory split.</div>
       </div>
     </div>
     <div style={{ marginTop: 44, padding: 30, border: '1px solid ' + C.darkLine, background: C.darkPanel }}>
@@ -1989,25 +2515,47 @@ export const notes = {
   20: 'Surprise is negative log probability; top-3 averages the largest three values.',
   21: 'Carry every displayed decimal through the two side-by-side calculations.',
   22: 'Thresholds are checkpoint-specific, so do not compare raw Base and Instruct scores directly.',
-  23: 'P(False) is a separate judge prompt and costs one extra forward pass.',
-  24: 'The self-check catches the wrong Base answer but false-alarms on the correct Instruct answer.',
-  25: 'The three stochastic generations use the saved seeds shown in the trace.',
-  26: 'Disagreement is the mean normalized No probability across three answer pairs.',
-  27: 'The hidden probe is a single standardized linear layer over the mean final hidden state.',
-  28: 'Shown contributions plus the grouped remainder reproduce the exact saved logits.',
-  29: 'The scorecard makes the worked-example failures as visible as the successes.',
-  30: 'Do not infer benchmark quality from one intuitive pair.',
-  31: 'Threshold search sees only calibration rows and maximizes macro-F1.',
-  32: 'These four held-out confusion counts sum to 300.',
-  33: 'Translate AUROC as pairwise ranking frequency, not accuracy or probability of correctness.',
-  34: 'Top-3 surprise is the descriptive Instruct leader; its uncertainty interval is wide.',
-  35: 'P(False) is the descriptive Base leader; the difference is modest.',
-  36: 'Dataset slices show that rankings are distribution-dependent.',
-  37: 'Base TruthfulQA AUROC is undefined because all 100 strict labels are wrong.',
-  38: 'The expensive disagreement method does not beat the free confidence-tail baseline.',
-  39: 'Summarize the four empirical findings without overstating them.',
-  40: 'State the scope and label limitations before giving a recommendation.',
-  41: 'End with the practical recommendation: cheap, inspectable triage.',
+  23: 'Define CRCV from confidence, normalized state shift, and rolling sample variability.',
+  24: 'The correct two-token answer has one valid coupling, so its sample SD is zero by convention.',
+  25: 'Compute the first Base five-coupling window without skipping the sample-variance denominator.',
+  26: 'All 19 saved window SDs sum to 3.591366 and average to 0.189019.',
+  27: 'One intuitive pair is not the benchmark: CRCV is modest on Instruct and near chance on Base.',
+  28: 'P(False) is a separate judge prompt and costs one extra forward pass.',
+  29: 'The self-check catches the wrong Base answer but false-alarms on the correct Instruct answer.',
+  30: 'The three stochastic generations use the saved seeds shown in the trace.',
+  31: 'Disagreement is the mean normalized No probability across three answer pairs.',
+  32: 'This is a simple SelfCheckGPT-inspired short-answer adaptation, not the paper’s full pipeline.',
+  33: 'Jaccard word-set distances are zero for three Taipeis and high for the divergent Base samples.',
+  34: 'Semantic entropy clusters meanings before measuring their empirical uncertainty.',
+  35: 'The three-sample proxy gives entropy zero for one cluster and 0.636514 for sizes two and one.',
+  36: 'The hidden probe is a standardized linear layer over the 896-dimensional mean hidden state.',
+  37: 'Shown contributions plus the grouped remainder reproduce the exact saved probe logits.',
+  38: 'The trace logistic uses eight fixed, cheap features and calibration-only standardization.',
+  39: 'For correct Taipei, the eight contributions plus bias give logit −1.897300 and risk 0.130414.',
+  40: 'For the wrong Base response, the same arithmetic gives risk 0.368457 and crosses its cutoff.',
+  41: 'A depth-2 tree asks only two trace questions before returning a calibration leaf wrong-rate.',
+  42: 'Follow both exact paths and divide leaf wrong counts by leaf row counts.',
+  43: 'The original four-method scorecard keeps successes and false alarms visible.',
+  44: 'Do not infer generalization from a single intuitive pair.',
+  45: 'Threshold search sees only calibration rows and maximizes macro-F1.',
+  46: 'These four held-out confusion counts sum to 300.',
+  47: 'Translate AUROC as pairwise ranking frequency, not accuracy or correctness probability.',
+  48: 'AURAC summarizes retained-answer accuracy as high-risk answers are rejected.',
+  49: 'This is the original frozen Instruct comparison, not the later expanded search.',
+  50: 'This is the original frozen Base comparison; P(False) leads only descriptively.',
+  51: 'Dataset slices show that rankings are distribution-dependent.',
+  52: 'Base TruthfulQA AUROC is undefined because all 100 strict labels are wrong.',
+  53: 'Clearly separate the confirmatory five-method layer from the post-hoc 31-method extension.',
+  54: 'All 24 scalar trace features are reported; none were selected by held-out performance.',
+  55: 'Lexical disagreement leads Instruct descriptively, while free surprise spread is close.',
+  56: 'Base has only 28 correct held-out answers, so every interval is wide.',
+  57: 'The practical cost frontier favors free trace scalars unless three samples are acceptable.',
+  58: 'Published semantic-entropy numbers use larger models, ten generations, and different labels.',
+  59: 'Evaluate only methods whose required inputs were actually saved; label adaptations as proxies.',
+  60: 'The original cost slide makes the frozen five-method comparison easy to reconstruct.',
+  61: 'Summarize empirical findings without turning post-hoc leaders into confirmed winners.',
+  62: 'State strict-label, imbalance, reference-free, and scope limitations before recommending use.',
+  63: 'End with cheap, inspectable triage and point to the interactive arithmetic.',
 };
 
 export default [
@@ -2034,21 +2582,43 @@ export default [
   SurpriseIdea,
   SurpriseCalc,
   SurpriseDecision,
+  CrcvIdea,
+  CrcvCorrect,
+  CrcvWrongWindow,
+  CrcvWrongAggregate,
+  CrcvResults,
   PFalsePrompt,
   PFalseCalc,
   DisagreementSamples,
   DisagreementCalc,
+  LexicalIdea,
+  LexicalCalc,
+  SemanticEntropyIdea,
+  SemanticEntropyCalc,
   ProbeIdea,
   ProbeCalc,
+  TraceLogisticIdea,
+  TraceLogisticCorrect,
+  TraceLogisticWrong,
+  TraceTreeIdea,
+  TraceTreeCalc,
   PairScorecard,
   PairLesson,
   Calibration,
   ThresholdQuality,
   AuRoc,
+  AuRac,
   InstructResults,
   BaseResults,
   InstructSlices,
   BaseSlices,
+  ExtensionBoundary,
+  ScalarFamilies,
+  ExpandedInstruct,
+  ExpandedBase,
+  ExtendedCost,
+  PublishedContext,
+  LiteratureFeasibility,
   Cost,
   Findings,
   Limits,

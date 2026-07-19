@@ -13,19 +13,21 @@ improve it. CRCV and the earlier 24-score sweep remain below as exploratory work
 not validated detector claims.
 
 [Open the beginner-friendly browser lab](https://nipunbatra.github.io/tiny-crcv-lab/).
-The default view explains the result in plain language; **Evidence** first
-compares all five fresh methods on Instruct, Base, NQ-Open, TriviaQA, and
-TruthfulQA. It can reconstruct all five scores for any of the 600 questions from
-raw saved inputs. The earlier 24-score sweep and HaluEval slice are available in
-one collapsed section. **Try it** performs inference inside the browser and
-exposes every raw per-token input.
+The default view explains the result in plain language; **Evidence** first shows
+the 12 headline baselines and then the complete 31-method audit on Instruct,
+Base, NQ-Open, TriviaQA, and TruthfulQA. It can reconstruct CRCV, sampled
+consistency, semantic-entropy, shallow-tree, logistic, probe, and token-level
+scores for any of the 600 questions from raw saved inputs. The earlier 100-row
+sweep and HaluEval slice remain in one collapsed section. **Try it** performs
+inference inside the browser and exposes every raw per-token input.
 
-[Open the 42-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
+[Open the 64-page animated presentation](https://nipunbatra.github.io/tiny-crcv-lab/talk/s/tiny-hallucination-detector).
 It defines the exact question-plus-answer detection task up front, shows real
 correct and wrong benchmark outputs, and works one held-out correct/wrong pair
-through tokenization, generation, four detector calculations, calibration, and
-held-out results. Every detector value in the worked example comes from the
-saved experiment traces. Press **F** for fullscreen presentation mode.
+through tokenization, generation, CRCV, eight other detector calculations,
+calibration, selective answering, expanded baselines, and published-method
+context. Every detector value in the worked example comes from the saved
+experiment traces. Press **F** for fullscreen presentation mode.
 
 This is a research prototype, not a production detector. The fresh comparison
 uses 300 questions for thresholds/probe fitting and reports results on 300 held
@@ -133,6 +135,42 @@ therefore remains top-3 surprise, with answer length always reported and
 P(False) optional as a second diagnostic. The probe and three-sample method add
 complexity or latency without established benefit here.
 
+### Post-hoc 31-method extension
+
+After the five-method held-out outputs had already been inspected, a second
+protocol froze a broader audit in
+`experiments/fresh_qa_600_extension_protocol.json`. It reuses the unchanged 600
+questions and saved traces, reports all 24 pre-existing scalar features, and
+adds two low-budget literature-inspired scores plus calibration-only 8-feature
+logistic and depth-2 tree baselines. Because this happened after test inspection,
+the rankings below are hypotheses for a new confirmatory split, not validated
+winners.
+
+| Representative extension method | Instruct AUROC (95% CI) | Base AUROC (95% CI) | Extra local cost |
+|---|---:|---:|---:|
+| Three-answer lexical disagreement | **0.717 (0.623–0.801)** | 0.601 (0.474–0.717) | 1.462 / 2.436 s |
+| Token-surprise spread | 0.706 (0.620–0.790) | 0.630 (0.518–0.730) | none |
+| Maximum token entropy | 0.696 (0.609–0.777) | 0.626 (0.517–0.723) | none |
+| Eight-feature trace logistic | 0.695 (0.603–0.777) | 0.627 (0.510–0.727) | about 2 / 1 μs |
+| Maximum token ambiguity | 0.632 (0.536–0.719) | **0.651 (0.553–0.745)** | none |
+| CRCV mean | 0.634 (0.543–0.712) | 0.537 (0.422–0.646) | none |
+| Three-sample discrete semantic-entropy proxy | 0.500 (0.434–0.553) | 0.600 (0.507–0.686) | 1.901 / 2.854 s |
+
+No extension method's paired 95% AUROC-difference interval was entirely above
+zero versus top-3 surprise. The Instruct cost frontier makes surprise spread the
+most interesting free follow-up; the Base result instead favors maximum token
+ambiguity. The disagreement is evidence against one checkpoint-independent
+magic score.
+
+The three-sample lexical score adapts the consistency idea from
+[SelfCheckGPT](https://aclanthology.org/2023.emnlp-main.557/). The discrete
+semantic-entropy score is explicitly a budget proxy: the
+[Nature method](https://www.nature.com/articles/s41586-024-07421-0) normally uses
+ten QA generations and bidirectional-entailment clustering. SAR, INSIDE /
+EigenScore, and Lookback Lens are explained but not assigned fake scores because
+the frozen traces lack, respectively, relevance passes, hidden embeddings for
+sampled answers, and attention to a grounding passage.
+
 The label is intentionally mechanical: a normalized accepted answer must occur
 as a whole phrase. This is especially strict for TruthfulQA's sentence-length
 answers. Base had no alias matches in the 100-question held-out TruthfulQA slice,
@@ -237,6 +275,9 @@ HF_HUB_OFFLINE=1 uv run python scripts/run_sota_comparison.py \
   --model-key instruct --overwrite
 HF_HUB_OFFLINE=1 uv run python scripts/run_sota_comparison.py \
   --model-key base --overwrite
+
+# Recompute the post-hoc 31-method audit from those frozen saved traces.
+uv run python scripts/evaluate_fast_baselines.py
 ```
 
 Omit `HF_HUB_OFFLINE=1` on the first run so Hugging Face can download the model.

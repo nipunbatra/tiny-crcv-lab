@@ -1,0 +1,115 @@
+{
+  "status": "post-hoc exploratory extension; the existing held-out outputs and original five-method results were inspected before this protocol was written",
+  "created_date": "2026-07-19",
+  "purpose": "Broaden the frozen 600-question audit with the original CRCV score, every already-recorded scalar baseline, two low-budget sample-consistency scores, and two calibration-trained trace ensembles.",
+  "data_and_models": {
+    "questions": "the unchanged 600 questions in data/fresh_qa_600.jsonl",
+    "checkpoints": [
+      "Qwen/Qwen2.5-0.5B-Instruct at resolved revision 7ae557604adf67be50417f59c2c2f167def9a775",
+      "Qwen/Qwen2.5-0.5B at resolved revision 7ae557604adf67be50417f59c2c2f167def9a775"
+    ],
+    "split": "the unchanged 300 calibration / 300 held-out question split",
+    "generation": "no new generation; use the saved greedy traces, three saved stochastic answers, and three saved pair judgments per question",
+    "label": "unchanged strict normalized accepted-alias match"
+  },
+  "scalar_trace_audit": {
+    "selection": "report all 24 pre-existing answer-level features; do not select them by held-out performance",
+    "features": [
+      "crcv_mean",
+      "crcv_max",
+      "mean_nll",
+      "confidence_variance_mean",
+      "shift_variance_mean",
+      "answer_tokens",
+      "top3_token_surprise",
+      "worst_token_surprise",
+      "surprise_spread",
+      "top4_token_surprise",
+      "skip_first_top3_surprise",
+      "surprise_shift_top3",
+      "uncertainty_shift_top3",
+      "token_entropy_top3",
+      "token_entropy_mean",
+      "token_entropy_max",
+      "token_ambiguity_top3",
+      "token_ambiguity_mean",
+      "token_ambiguity_max",
+      "hidden_cosine_mean",
+      "hidden_cosine_max",
+      "hidden_cosine_top3",
+      "hidden_norm_mean",
+      "hidden_norm_variability"
+    ]
+  },
+  "added_methods": {
+    "lexical_disagreement_3": {
+      "family": "SelfCheckGPT-inspired lexical self-consistency",
+      "formula": "mean over the three sample pairs of 1 - Jaccard(normalized word-token sets)",
+      "training": "none",
+      "online_cost": "three stochastic generations; no judge calls",
+      "warning": "This is a short-answer lexical adaptation, not a reproduction of every SelfCheckGPT variant."
+    },
+    "discrete_semantic_entropy_3": {
+      "family": "low-budget discrete semantic-entropy proxy",
+      "clustering": "connect a sample pair when its saved same-answer normalized p(No) is below 0.5; use connected components as meaning clusters",
+      "formula": "-sum_c (n_c / 3) ln(n_c / 3)",
+      "training": "none",
+      "online_cost": "three stochastic generations plus the same three saved pair judgments used by semantic disagreement",
+      "warning": "The Nature method normally uses ten generations and bidirectional entailment; this three-sample same-answer-judge version is explicitly a budget proxy."
+    },
+    "trace_logistic_8": {
+      "family": "calibration-trained fast multi-feature baseline",
+      "features": [
+        "top3_token_surprise",
+        "mean_nll",
+        "token_entropy_top3",
+        "token_ambiguity_top3",
+        "crcv_mean",
+        "surprise_shift_top3",
+        "hidden_cosine_top3",
+        "answer_tokens"
+      ],
+      "standardization": "per-feature mean and population standard deviation from calibration only; scales below 1e-6 become 1",
+      "model": "one linear layer with sigmoid",
+      "optimizer": "full-batch Adam, learning rate 0.03, 800 steps, weight decay 0.01, class-balanced binary cross entropy",
+      "seeds": {
+        "instruct": 20260791,
+        "base": 20260792
+      },
+      "selection": "no feature or hyperparameter search after aggregate results"
+    },
+    "trace_tree_depth2": {
+      "family": "calibration-trained interpretable multi-feature baseline",
+      "features": "the same fixed eight features as trace_logistic_8",
+      "model": "deterministic CART-style tree, maximum depth 2, minimum 20 calibration rows per leaf, stable tie breaks",
+      "training": "calibration only",
+      "selection": "no depth or minimum-leaf search after aggregate results"
+    }
+  },
+  "evaluation": {
+    "primary_metric": "held-out AUROC",
+    "secondary_metrics": [
+      "bootstrap 95% AUROC interval",
+      "paired bootstrap AUROC difference versus top-3 token surprise",
+      "average precision",
+      "macro-F1 at a calibration-fitted threshold",
+      "confusion matrix",
+      "AURAC",
+      "accuracy after rejecting the highest-risk 10%, 20%, and 30%",
+      "incremental latency from saved timings"
+    ],
+    "classification_threshold": "maximize macro-F1 on the pooled 300-question calibration split, then freeze",
+    "bootstrap_samples": 2000,
+    "bootstrap_seed": 20260793,
+    "slices": "pooled held-out and each source dataset separately"
+  },
+  "literature_positioning": {
+    "P(True)": "Kadavath et al., Language Models (Mostly) Know What They Know, 2022",
+    "SelfCheckGPT": "Manakul et al., EMNLP 2023",
+    "semantic_entropy": "Farquhar et al., Nature 2024",
+    "SAR": "Duan et al., ACL 2024; discussed but not evaluated because saved traces do not include token-relevance deletion passes",
+    "INSIDE_EigenScore": "Chen et al., ICLR 2024; discussed but not evaluated because stochastic-answer hidden embeddings were not saved",
+    "Lookback_Lens": "Chuang et al., EMNLP 2024; discussed but out of scope because this benchmark has no grounding passage and the public graph does not expose attention maps"
+  },
+  "interpretation": "Because this is post-hoc, report estimates and uncertainty without claiming a new method is confirmed or state of the art. Results from different papers are not numerically comparable unless model, task, label, sampling budget, and split match."
+}

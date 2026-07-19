@@ -1,0 +1,82 @@
+{
+  "model": "base",
+  "feature_order": [
+    "top3_token_surprise",
+    "mean_nll",
+    "token_entropy_top3",
+    "token_ambiguity_top3",
+    "crcv_mean",
+    "surprise_shift_top3",
+    "hidden_cosine_top3",
+    "answer_tokens"
+  ],
+  "logistic": {
+    "calibration_mean": [
+      2.0202033519744873,
+      1.0269569158554077,
+      0.3977157473564148,
+      0.9108930230140686,
+      0.225100576877594,
+      1.2629289627075195,
+      0.6073346734046936,
+      17.10333251953125
+    ],
+    "calibration_scale": [
+      0.6356344819068909,
+      0.574268639087677,
+      0.1065199002623558,
+      0.14238204061985016,
+      0.12982246279716492,
+      0.6267727017402649,
+      0.2665153443813324,
+      9.512072563171387
+    ],
+    "weights": [
+      0.6278072595596313,
+      -0.21672965586185455,
+      0.14468427002429962,
+      -0.22221845388412476,
+      0.3801625967025757,
+      0.33312052488327026,
+      -0.19738399982452393,
+      0.12831251323223114
+    ],
+    "bias": 0.29290467500686646,
+    "training_loss": 0.5977078427261902,
+    "steps": 800,
+    "seed": 20260792
+  },
+  "tree": {
+    "count": 300,
+    "positives": 265,
+    "hallucination_probability": 0.8833333333333333,
+    "feature": "surprise_shift_top3",
+    "threshold": 0.41302325912949056,
+    "left_if": "value <= threshold",
+    "left": {
+      "count": 34,
+      "positives": 21,
+      "hallucination_probability": 0.6176470588235294
+    },
+    "right_if": "value > threshold",
+    "right": {
+      "count": 266,
+      "positives": 244,
+      "hallucination_probability": 0.9172932330827067,
+      "feature": "token_entropy_top3",
+      "threshold": 0.3864796658356985,
+      "left_if": "value <= threshold",
+      "left": {
+        "count": 94,
+        "positives": 79,
+        "hallucination_probability": 0.8404255319148937
+      },
+      "right_if": "value > threshold",
+      "right": {
+        "count": 172,
+        "positives": 165,
+        "hallucination_probability": 0.9593023255813954
+      }
+    }
+  }
+}

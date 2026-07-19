@@ -146,16 +146,25 @@ def compute_features(
 
 def auroc(labels: Sequence[int], scores: Sequence[float]) -> float:
     """Compute AUROC by pairwise comparisons, including half-credit for ties."""
-    positives = [score for label, score in zip(labels, scores, strict=True) if label == 1]
-    negatives = [score for label, score in zip(labels, scores, strict=True) if label == 0]
+    if len(labels) != len(scores):
+        raise ValueError("labels and scores must have the same length")
+    positives = sum(label == 1 for label in labels)
+    negatives = sum(label == 0 for label in labels)
     if not positives or not negatives:
         raise ValueError("AUROC requires at least one example from each class")
-    wins = sum(
-        1.0 if positive > negative else 0.5 if positive == negative else 0.0
-        for positive in positives
-        for negative in negatives
-    )
-    return wins / (len(positives) * len(negatives))
+
+    groups: dict[float, list[int]] = {}
+    for label, score in zip(labels, scores, strict=True):
+        counts = groups.setdefault(float(score), [0, 0])
+        counts[int(label)] += 1
+
+    wins = 0.0
+    lower_negatives = 0
+    for score in sorted(groups):
+        negative_count, positive_count = groups[score]
+        wins += positive_count * (lower_negatives + 0.5 * negative_count)
+        lower_negatives += negative_count
+    return wins / (positives * negatives)
 
 
 def average_precision(labels: Sequence[int], scores: Sequence[float]) -> float:
@@ -193,6 +202,24 @@ def selective_accuracy(
     keep = max(1, round(len(labels) * coverage))
     ranked = sorted(range(len(labels)), key=lambda index: (scores[index], index))[:keep]
     return sum(labels[index] == 0 for index in ranked) / keep
+
+
+def aurac(labels: Sequence[int], scores: Sequence[float]) -> float:
+    """Mean retained-answer accuracy over every non-empty coverage level.
+
+    Answers are ordered from lowest to highest risk.  For each retained prefix
+    of size 1..N, compute strict-label accuracy, then average those N values.
+    This is the discrete area under the rejection-accuracy curve used here.
+    """
+    if len(labels) != len(scores) or not labels:
+        raise ValueError("labels and scores must be non-empty and have the same length")
+    ranked = sorted(range(len(labels)), key=lambda index: (scores[index], index))
+    correct = 0
+    accuracies: list[float] = []
+    for retained, index in enumerate(ranked, start=1):
+        correct += int(labels[index] == 0)
+        accuracies.append(correct / retained)
+    return statistics.fmean(accuracies)
 
 
 def macro_f1(labels: Sequence[int], predictions: Sequence[int]) -> float:

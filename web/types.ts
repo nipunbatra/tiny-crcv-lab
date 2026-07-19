@@ -1,11 +1,37 @@
 export type ModelKind = 'instruct' | 'base';
 
 export type FreshMethodKey =
+  | 'crcv_mean'
+  | 'crcv_max'
+  | 'mean_nll'
+  | 'confidence_variance_mean'
+  | 'shift_variance_mean'
+  | 'answer_tokens'
   | 'top3_token_surprise'
+  | 'worst_token_surprise'
+  | 'surprise_spread'
+  | 'top4_token_surprise'
+  | 'skip_first_top3_surprise'
+  | 'surprise_shift_top3'
+  | 'uncertainty_shift_top3'
+  | 'token_entropy_top3'
+  | 'token_entropy_mean'
+  | 'token_entropy_max'
+  | 'token_ambiguity_top3'
+  | 'token_ambiguity_mean'
+  | 'token_ambiguity_max'
+  | 'hidden_cosine_mean'
+  | 'hidden_cosine_max'
+  | 'hidden_cosine_top3'
+  | 'hidden_norm_mean'
+  | 'hidden_norm_variability'
   | 'p_true'
   | 'hidden_logistic_probe'
   | 'semantic_disagreement_3'
-  | 'answer_tokens';
+  | 'lexical_disagreement_3'
+  | 'discrete_semantic_entropy_3'
+  | 'trace_logistic_8'
+  | 'trace_tree_depth2';
 
 export interface FreshSliceMetric {
   examples: number;
@@ -16,12 +42,15 @@ export interface FreshSliceMetric {
   average_precision: number | null;
   macro_f1: number;
   confusion: Record<string, number>;
+  aurac: number;
   selective_accuracy: Record<'0.9' | '0.8' | '0.7', number>;
 }
 
 export interface FreshMethodMetric {
   display_name: string;
   formula: string;
+  family: string;
+  implementation_note: string;
   direction: string;
   threshold: number;
   calibration: { examples: number; incorrect: number; auroc: number; macro_f1: number };
@@ -41,14 +70,25 @@ export interface FreshMethodMetric {
 }
 
 export interface FreshComparisonMetrics {
+  extension_status: string;
   label_definition: string;
   calibration_examples: number;
   held_out_examples: number;
   calibration_incorrect: number;
   held_out_incorrect: number;
+  original_frozen_method_order: FreshMethodKey[];
+  headline_method_order: FreshMethodKey[];
+  scalar_method_order: FreshMethodKey[];
+  all_method_order: FreshMethodKey[];
+  trace_ensemble_features: FeatureKey[];
   methods: Record<FreshMethodKey, FreshMethodMetric>;
-  descriptive_best_non_confound: FreshMethodKey;
-  reliable_improvements_over_top3: FreshMethodKey[];
+  posthoc_descriptive_best_non_confound: FreshMethodKey;
+  posthoc_paired_intervals_above_zero: FreshMethodKey[];
+  interpretation: string;
+  extension_runtime: {
+    trace_logistic_scoring_seconds_all_600: number;
+    trace_tree_scoring_seconds_all_600: number;
+  };
   runtime: {
     mean_greedy_generation_seconds: number;
     total_greedy_generation_seconds: number;
@@ -99,6 +139,33 @@ export interface FreshPrediction {
   }>;
   method_scores: Record<FreshMethodKey, number>;
   method_seconds: Record<FreshMethodKey, number>;
+  lexical_disagreement_explanation: {
+    pair_distances: Array<{ sample_a: number; sample_b: number; distance: number }>;
+    score: number;
+  };
+  semantic_entropy_explanation: {
+    threshold: number;
+    clusters: number[][];
+    cluster_sizes: number[];
+    probabilities: number[];
+    entropy_terms: number[];
+    score: number;
+  };
+  trace_logistic_explanation: {
+    bias: number;
+    terms: Array<{
+      feature: FeatureKey;
+      raw_value: number;
+      calibration_mean: number;
+      calibration_scale: number;
+      standardized_value: number;
+      weight: number;
+      contribution: number;
+    }>;
+    logit: number;
+    sigmoid_risk: number;
+  };
+  trace_tree_path: string[];
   probe_explanation: {
     bias: number;
     top_contributions: Array<{
